@@ -1,0 +1,24 @@
+[submodule "packages/gtelmaps-style-spec"]
+	path = packages/gtelmaps-style-spec
+	url = git@github.com:nhantt-gis/gtelmaps-style-spec.git
+	branch = dev-v24.7.0-0.1
+[submodule "packages/gtelmaps-gl-js"]
+	path = packages/gtelmaps-gl-js
+	url = git@github.com:nhantt-gis/gtelmaps-gl-js.git
+	branch = dev-v5.20.0-0.1
+[submodule "packages/gtelmaps-client-js"]
+	path = packages/gtelmaps-client-js
+	url = git@github.com:nhantt-gis/gtelmaps-client-js.git
+	branch = dev-v2.7.0-0.1
+[submodule "packages/gtelmaps-sdk-js"]
+	path = packages/gtelmaps-sdk-js
+	url = git@github.com:nhantt-gis/gtelmaps-sdk-js.git
+	branch = dev-v3.10.0-0.1
+[submodule "packages/gtelmaps-3d-js"]
+	path = packages/gtelmaps-3d-js
+	url = git@github.com:nhantt-gis/gtelmaps-3d-js.git
+	branch = dev-v3.1.0-0.1
+[submodule "packages/gtelmaps-sdk-react"]
+	path = packages/gtelmaps-sdk-react
+	url = git@github.com:nhantt-gis/gtelmaps-sdk-react.git
+	branch = dev-v8.1.0-0.1

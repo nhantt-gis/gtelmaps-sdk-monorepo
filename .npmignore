@@ -1,0 +1,13 @@
+docs
+docsmd
+images
+examples
+demos
+scripts
+test
+e2e
+src
+!dist/src
+*.tgz
+.github
+.vscode
