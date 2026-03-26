@@ -1,0 +1,18 @@
+{
+  "name": "demo-sdk-js",
+  "private": true,
+  "version": "1.0.0-alpha.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@gis/gtelmaps-sdk-js": "npm:@gis/gtelmaps-sdk-js@1.0.0-alpha.6"
+  },
+  "devDependencies": {
+    "typescript": "^5.2.2",
+    "vite": "^5.2.0"
+  }
+}
