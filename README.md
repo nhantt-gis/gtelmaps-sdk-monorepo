@@ -44,7 +44,6 @@ This repository contains forked and customized packages for the GTEL Maps SDK:
 - [gtelmaps-style-spec](https://github.com/gtelmaps/gtelmaps-style-spec): The style specification for the map.
 - [gtelmaps-sdk-js](https://github.com/gtelmaps/gtelmaps-sdk-js): The SDK for the map.
 - [gtelmaps-client-js](https://github.com/gtelmaps/gtelmaps-client-js): The client for the map.
-- [gtelmaps-3d-js](https://github.com/gtelmaps/gtelmaps-3d-js): The 3D rendering engine for the map.
 
 Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
 

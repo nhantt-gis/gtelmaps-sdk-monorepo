@@ -7,11 +7,53 @@
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": [".next/**", "!.next/cache/**", "dist/**"]
     },
+    "@gis/gtelmaps-gl-style-spec#build": {
+      "dependsOn": [],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": ["dist/**"]
+    },
+    "@gis/gtelmaps-client#build": {
+      "dependsOn": [],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": ["dist/**"]
+    },
+    "@gis/gtelmaps-gl-js#build": {
+      "dependsOn": ["@gis/gtelmaps-gl-style-spec#build"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": ["dist/**"]
+    },
+    "@gis/gtelmaps-sdk-js#build": {
+      "dependsOn": [
+        "@gis/gtelmaps-client#build",
+        "@gis/gtelmaps-gl-style-spec#build",
+        "@gis/gtelmaps-gl-js#build"
+      ],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": ["dist/**"]
+    },
+    "react-map-gl-monorepo#build": {
+      "dependsOn": ["@gis/gtelmaps-sdk-js#build", "@gis/gtelmaps-gl-style-spec#build"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": ["dist/**"]
+    },
     "lint": {
       "dependsOn": ["^lint"]
     },
     "check-types": {
       "dependsOn": ["^check-types"]
+    },
+    "typecheck": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$"]
+    },
+    "@gis/gtelmaps-gl-style-spec#typecheck": {
+      "dependsOn": ["@gis/gtelmaps-gl-style-spec#build"]
+    },
+    "@gis/gtelmaps-gl-js#typecheck": {
+      "dependsOn": ["@gis/gtelmaps-gl-js#build"]
+    },
+    "@gis/gtelmaps-sdk-js#typecheck": {
+      "dependsOn": ["@gis/gtelmaps-gl-js#build"]
     },
     "dev": {
       "cache": false,
