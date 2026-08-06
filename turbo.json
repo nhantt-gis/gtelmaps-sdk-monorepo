@@ -17,7 +17,7 @@
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": ["dist/**"]
     },
-    "@gis/gtelmaps-gl-js#build": {
+    "@gis/gtelmaps-gl-js#build-dist": {
       "dependsOn": ["@gis/gtelmaps-gl-style-spec#build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": ["dist/**"]
@@ -26,7 +26,7 @@
       "dependsOn": [
         "@gis/gtelmaps-client#build",
         "@gis/gtelmaps-gl-style-spec#build",
-        "@gis/gtelmaps-gl-js#build"
+        "@gis/gtelmaps-gl-js#build-dist"
       ],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": ["dist/**"]
@@ -50,10 +50,10 @@
       "dependsOn": ["@gis/gtelmaps-gl-style-spec#build"]
     },
     "@gis/gtelmaps-gl-js#typecheck": {
-      "dependsOn": ["@gis/gtelmaps-gl-js#build"]
+      "dependsOn": ["@gis/gtelmaps-gl-js#build-dist"]
     },
     "@gis/gtelmaps-sdk-js#typecheck": {
-      "dependsOn": ["@gis/gtelmaps-gl-js#build"]
+      "dependsOn": ["@gis/gtelmaps-gl-js#build-dist"]
     },
     "dev": {
       "cache": false,

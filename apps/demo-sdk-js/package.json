@@ -9,7 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@gis/gtelmaps-sdk-js": "npm:@gis/gtelmaps-sdk-js@1.0.0-alpha.6"
+    "@gis/gtelmaps-sdk-js": "workspace:@gis/gtelmaps-sdk-js@*"
   },
   "devDependencies": {
     "typescript": "^5.2.2",

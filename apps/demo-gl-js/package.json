@@ -9,7 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@gis/gtelmaps-gl-js": "npm:@gis/gtelmaps-gl-js@1.0.0-alpha.2"
+    "@gis/gtelmaps-gl-js": "workspace:@gis/gtelmaps-gl-js@*"
   },
   "devDependencies": {
     "typescript": "^5.2.2",

@@ -9,8 +9,8 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@gis/gtelmaps-sdk-react": "npm:@gis/gtelmaps-sdk-react@1.0.0-alpha.6",
-    "@gis/gtelmaps-sdk-js": "npm:@gis/gtelmaps-sdk-js@1.0.0-alpha.6",
+    "@gis/gtelmaps-sdk-react": "workspace:@gis/gtelmaps-sdk-react@*",
+    "@gis/gtelmaps-sdk-js": "workspace:@gis/gtelmaps-sdk-js@*",
     "next": "16.2.1",
     "react": "19.2.4",
     "react-dom": "19.2.4"
