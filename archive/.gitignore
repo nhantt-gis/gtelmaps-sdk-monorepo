@@ -1,0 +1,4 @@
+# Nguồn đã trích hết ra rồi; giữ thêm 17 MB JSON là thừa. Nếu cần dựng lại
+# bản trích: source map nằm ở packages/gtelmaps-gl-js/dist/*.js.map của một
+# bản `npm run build-dev` — nhưng chỉ khi cây mã còn nguyên phần đã mất.
+g4-three-backend-recovered/_sourcemaps/
