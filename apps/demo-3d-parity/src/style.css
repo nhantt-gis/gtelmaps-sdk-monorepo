@@ -21,3 +21,7 @@ code { color: #9fe8ff; font-size: 12px; }
 #hud label { display: flex; align-items: center; gap: 8px; }
 .hint { opacity: .55; }
 #readout { opacity: .6; font-variant-numeric: tabular-nums; padding-top: 2px; border-top: 1px solid #1d2c3a; }
+
+#hud .modes { display: flex; gap: 12px; padding-bottom: 6px; border-bottom: 1px solid #1d2c3a; }
+#glass-controls, #atlas-controls { display: grid; gap: 6px; }
+#atlas-controls[hidden], #glass-controls[hidden] { display: none; }

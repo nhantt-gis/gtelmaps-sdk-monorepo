@@ -1,7 +1,7 @@
-# `building-glass` — bản đã hiện thực, và những chỗ kế hoạch sai
+# `building-glass` và `building-atlas` — bản đã hiện thực, và những chỗ kế hoạch sai
 
 - **Ngày:** 2026-08-20
-- **Trạng thái:** đã hiện thực và qua cổng; `building-atlas` chưa làm
+- **Trạng thái:** đã hiện thực và qua cổng — cả `building-glass` lẫn `building-atlas`
 - **Thay cho:** phần §6 (tầng render) của `2026-08-20-building-glass-design.md`, vốn viết cho backend Three
 - **Lưu ý:** hai tài liệu kia nằm trên nhánh `spike/g0-g1-3d-core`; monorepo hiện đang ở `main`
 
@@ -108,16 +108,75 @@ chứ không phải một ảnh đơn lẻ trông hợp lý.
 - **R-5 `edgeDistance` wrap ở 32768** (giới hạn Int16). Chưa ảnh hưởng kính; sẽ
   ảnh hưởng `building-atlas` trên tường rất dài.
 
-## 6. `building-atlas` — đã khảo sát, chưa làm
+## 6. `building-atlas` — đã hiện thực
 
-Kết quả khảo sát đáng ghi vì nó đổi chi phí: **không cần một vertex attribute mới
-nào.** Bảy attribute của `3d-plugins` ánh xạ hết vào thứ MapLibre đã có —
-`aLayer`/`aGlowLayer`/`aTint` thành paint property data-driven (binder tự bóc
-tiền tố), `aIsRoof` là `normal.y != 0.0`, `aTopZ` chính là `height`, `aId` là một
+### 6.1. Điều đã đúng: không cần vertex attribute mới
+
+Bảy attribute của `3d-plugins` ánh xạ hết vào thứ MapLibre đã có —
+`aLayer`/`aGlowLayer`/`aTint` thành paint property (binder tự bóc tiền tố),
+`aIsRoof` là `step(8192.0, normal.z)`, `aTopZ` chính là `height`, `aId` là một
 property `-seed` đọc từ tile, và `aTile` tính trong shader từ `edgedistance` +
-`elevation` như `fill_extrusion_pattern` đã làm. Nghĩa là **không đụng
-`generate-struct-arrays.ts`**, và xung đột với `centroidVertexBuffer` (slot
-`dynamicLayoutBuffer` duy nhất, terrain đang chiếm) biến mất.
+`elevation`. Không đụng `generate-struct-arrays.ts`, và xung đột với
+`centroidVertexBuffer` biến mất.
 
-Khác biệt phải chấp nhận: `3d-plugins` cộng dồn **số cửa sổ nguyên** quanh ring
-nên góc nhà không cắt đôi ô cửa; `edgedistance` là mét thô nên sẽ lệch ở góc.
+Bucket vì thế chỉ cần **một dòng**: đổi `patternPropertyPrefix`. Toàn bộ bộ máy
+atlas — worker gom phụ thuộc ảnh, `ImageAtlas` chèn viền 1px cho `mod()` tiling,
+`CrossFadedPatternBinder` cấp sub-rect từng feature — chạy nguyên vẹn, **với điều
+kiện** property mang đúng tên `<type>-pattern`.
+
+### 6.2. Ràng buộc quyết định hình dạng của layer
+
+`feature.patterns` khoá theo **layer id**, không theo tên property
+(`pattern_bucket_features.ts`). Nghĩa là mỗi layer có đúng **một** ảnh
+data-driven. Hai hệ quả, cả hai đều là đánh đổi có ý thức chứ không phải thiếu
+sót:
+
+- **Mái không có ảnh.** Ảnh duy nhất phải dành cho tường. Mái dùng
+  `building-atlas-roof-color` (data-driven). Bản gốc có 9 texture mái; sửa
+  `feature.patterns` thành bảng hai tầng sẽ lan vào mọi binder đọc nó, không
+  tương xứng với một texture mái.
+- **Mặt nạ cửa sổ là hằng số theo layer**, lấy từ sprite toàn cục trên texture
+  unit riêng.
+
+### 6.3. Một sai lầm mà chỉ bản render mới lộ ra
+
+Thiết kế đầu dùng **kênh alpha của ảnh mặt tiền làm mặt nạ cửa sổ** — một ảnh,
+không tốn texture thứ hai. Bản render đầu tiên cho ra tường **đen** và chỉ cửa sổ
+có màu: đúng ngược lại với ảnh đã vẽ.
+
+Nguyên nhân: `tile.imageAtlasTexture` dựng bằng `new Texture(context, image,
+gl.RGBA)` không kèm option, nên `wantPremultiply` là `true` (`texture.ts:67`).
+Alpha sống sót, **RGB thì không** — mọi pixel alpha 0 mất sạch màu. Quy ước
+"alpha là mặt nạ" không thể đúng trên atlas này.
+
+Đã đổi: ảnh mặt tiền **đục hoàn toàn**, mặt nạ là ảnh riêng trong sprite toàn cục
+(`building-atlas-glow-pattern`), đọc kênh đỏ. Đây cũng là lý do
+`build-sprite.mjs` ép alpha 255 cho mọi ô.
+
+> Đáng ghi: một golden image tự sinh rồi tự duyệt sẽ **khoá luôn** lỗi này. Nó
+> chỉ lộ ra vì ảnh được so với thứ đã cố ý vẽ vào sprite, chứ không phải vì
+> "trông có vẻ hợp lý".
+
+### 6.4. UV bằng mét, không neo vào màn hình
+
+`fill_extrusion_pattern` neo ảnh vào screen space qua `u_pixel_coord_*` và
+`u_scale`, để hoa văn trang trí giữ nguyên kích thước biểu kiến qua mọi zoom.
+Mặt tiền cần điều ngược lại: dính vào tường. Nên UV dựng thẳng từ mét —
+`edgedistance / (bay_width · unitsPerMetre)` và `elevation / floor_height` — và
+`u_pixel_coord_*`/`u_scale` không tồn tại trong shader này.
+
+`bay_width` và `floor_height` là **data-driven**: riêng tập dữ liệu này đã có ba
+bề rộng ô cửa (6/4/5) và bốn số tầng (2/3/4/5). Ép thành hằng số theo layer sẽ
+đặt đường sàn *gần* các tầng thay vì *đúng* vào tầng.
+
+### 6.5. Cổng đã qua
+
+Năm fixture, mỗi cái hỏi một câu: mặt tiền theo tầng; cửa sổ sáng ban đêm; bề
+rộng ô cửa; màu mái nhìn từ trên; và lượt hai-pass khi layer mờ toàn phần. Cộng
+21 unit test.
+
+### 6.6. Còn lại so với bản gốc
+
+Không có `normal`/`mask` map (bản gốc có nhưng chỉ dùng diffuse trong shader
+atlas), không có phản chiếu nước, không có bóng đổ — cả ba đều là chuyện của
+`LightingRig` và pass phụ, không phải của layer này.

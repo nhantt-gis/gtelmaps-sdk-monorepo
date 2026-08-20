@@ -3,3 +3,5 @@
 public/tiles/
 # Symlink tới dist của gl-js, dựng lại khi cần.
 public/gl
+# Sinh lại bằng `node scripts/build-sprite.mjs`.
+public/sprite/

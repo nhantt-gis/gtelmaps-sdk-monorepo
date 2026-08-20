@@ -25,6 +25,22 @@ const outDir = resolve(here, '../public/tiles');
 const KEEP = ['code', 'name', 'height', 'num_floors', 'roof_type', 'roof_height',
     'bay_width', 'facade_material', 'roof_material', 'zone_code', 'subclass_code'];
 
+/**
+ * FNV-1a over the feature id, reduced to a small integer.
+ *
+ * `building-atlas-seed` only has to differ between neighbouring buildings, and a
+ * style expression cannot hash a string — so it is baked here, the same way the
+ * plugin bakes `facade_material` rather than choosing it at draw time.
+ */
+function seedOf(id) {
+    let h = 0x811c9dc5;
+    for (const ch of String(id)) {
+        h ^= ch.charCodeAt(0);
+        h = Math.imul(h, 0x01000193) >>> 0;
+    }
+    return h % 1024;
+}
+
 const raw = JSON.parse(readFileSync(src, 'utf8'));
 const features = raw.features.map((f) => {
     const props = {};
@@ -33,6 +49,7 @@ const features = raw.features.map((f) => {
     // base is ground level. Stated here rather than defaulted in the shader so
     // the assumption is visible in the data contract.
     props.min_height = 0;
+    props.seed = seedOf(f.properties.id ?? f.properties.code ?? '');
     return {type: 'Feature', properties: props, geometry: f.geometry};
 });
 
