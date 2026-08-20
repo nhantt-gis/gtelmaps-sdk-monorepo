@@ -1,0 +1,5 @@
+# Sinh lại bằng `node scripts/build-tiles.mjs`; script mới là thứ đáng giữ,
+# không phải output của nó.
+public/tiles/
+# Symlink tới dist của gl-js, dựng lại khi cần.
+public/gl

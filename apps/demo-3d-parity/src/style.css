@@ -1,0 +1,23 @@
+:root { color-scheme: dark; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: #05080c; color: #cfe3f2;
+  font: 13px/1.5 ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif; }
+#panes { display: flex; height: 100%; }
+.pane { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; border-left: 1px solid #16222e; }
+.pane:first-child { border-left: 0; }
+/* `display:flex` on .pane outranks the UA's `[hidden]{display:none}`, so without
+   this the empty reference pane still claims half the width. */
+.pane[hidden] { display: none; }
+.pane header { flex: 0 0 auto; padding: 6px 10px; background: #0a1119; border-bottom: 1px solid #16222e;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tag { display: inline-block; padding: 1px 7px; border-radius: 999px; font-weight: 600; font-size: 11px; }
+.tag.ours { background: #16394f; color: #7fd4ff; }
+.tag.ref  { background: #3f2f16; color: #ffc98a; }
+#map, #ref { flex: 1 1 auto; width: 100%; border: 0; }
+code { color: #9fe8ff; font-size: 12px; }
+#hud { position: fixed; left: 12px; bottom: 12px; z-index: 10; display: grid; gap: 6px;
+  padding: 10px 12px; background: rgba(8,14,20,.92); border: 1px solid #1d2c3a; border-radius: 10px;
+  backdrop-filter: blur(6px); }
+#hud label { display: flex; align-items: center; gap: 8px; }
+.hint { opacity: .55; }
+#readout { opacity: .6; font-variant-numeric: tabular-nums; padding-top: 2px; border-top: 1px solid #1d2c3a; }
