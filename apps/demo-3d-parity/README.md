@@ -21,6 +21,14 @@ cho. Một toà nhà bị cắt ở biên tile sẽ được đo hai lần, mỗ
 nửa nhận hai ánh xạ khác nhau. Khi kéo bản đồ, tile vào ra thì nửa nào đang hiện
 cũng đổi — đọc ra là mái "giật".
 
+Và một tile **không tồn tại** phải trả về 404, không phải 200. tippecanoe không
+ghi tile ở chỗ không có gì để vẽ, còn SPA fallback của Vite thì trả `index.html`
+kèm 200 cho mọi thứ nó không tìm thấy — bộ giải mã gặp HTML ở chỗ chờ protobuf và
+báo `Unimplemented type: 4`, một câu không nói gì về nguyên nhân. Tệ hơn: tile đó
+bị tính là *hỏng* chứ không phải *rỗng*, nên MapLibre giữ một tile thô để lấp chỗ
+vĩnh viễn, và mỗi toà nhà trong vùng chồng lấn được vẽ nhiều lần. `vite.config.ts`
+có một middleware trả 404 cho đúng việc này.
+
 `build-tiles.mjs` cần `tippecanoe` trên PATH. Nó đọc
 `sdk/3d-plugins/public/data/overlay/buildings.geojson` (372 toà nhà KCN Châu Đức)
 — **đúng tập dữ liệu bản plugin đang vẽ**, nên hai khung so cùng một thứ chứ
