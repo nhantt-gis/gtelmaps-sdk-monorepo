@@ -72,6 +72,13 @@ execFileSync('tippecanoe', [
     // measure the footprint it is given: a building cut in half at a tile edge
     // gets two different mappings, one per half, meeting at a visible seam.
     '--no-clipping',
+    // A small building must survive at every zoom rather than being merged away.
+    // MapLibre stands a coarser tile in for one still loading, so the same
+    // building can arrive from two zooms at once, and a copy that has been
+    // reduced is measured differently — the layer then maps its roof twice.
+    // Resolution still differs between zooms, so this narrows the gap rather
+    // than closing it; the layer refuses the overlap itself.
+    '--no-tiny-polygon-reduction',
     // Essential. tippecanoe gzips by default; a static server then serves those
     // bytes without `Content-Encoding: gzip` and the decoder reports
     // "Unimplemented type: 3" from somewhere that says nothing about compression.

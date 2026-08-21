@@ -261,3 +261,49 @@ bước cuối.
 
 **R-13 (mới):** mặt tiền và mái lấy mẫu khác nhau, và sự khác nhau ấy có lý do
 cấu trúc. Ai gộp chúng lại làm một sẽ làm hỏng một trong hai.
+
+---
+
+## 11. Đợt thứ tư: vẫn giật, và lần này là hai mức zoom tile chồng nhau
+
+Đợt ba kết luận nguyên nhân là tile bị cắt, sửa bằng `--no-clipping`. Đúng, nhưng
+**chưa đủ** — vẫn còn một nguồn thứ hai cho cùng một triệu chứng, và nó lớn hơn.
+
+### 11.1 Cách tìm ra
+
+Chụp ở pitch 50 thì tái hiện được ngay; ở pitch 41 thì không. Dựng `v_roof_uv`
+thành màu cho thấy nhiều mái bị **rách răng cưa** — chữ ký của hai mặt đồng phẳng
+tranh nhau, không phải lỗi ánh xạ. Đếm tile ở `17.6/pitch 50`: **ba** tile được vẽ
+cùng lúc, một **z15** và hai **z16**.
+
+Hai phép đo trước đó suýt dẫn tôi đi sai:
+- Đo `footprintSize` ra dưới **một texel mỗi pixel** — tức mái gần như không bị
+  thu nhỏ, nên mọi giả thuyết về răng cưa lấy mẫu đều sai.
+- Đặt số tap từ 8 xuống 1 thì ảnh **không đổi** — xác nhận điều trên.
+
+### 11.2 Nguyên nhân
+
+MapLibre cho tile thô đứng thay khi tile mịn còn đang tải. Cùng một toà nhà vì
+thế đến layer **hai lần**, và tile thô mang ít độ phân giải hơn nên footprint
+không cùng hình. Layer trải một bản ảnh mái lên cái footprint nó được đưa cho,
+nên hai bản nhận hai ánh xạ, hai mái đồng phẳng xé nhau từng pixel, và bên nào
+thắng thì đổi theo camera.
+
+Điều đó giải thích cả hai điều kiện người dùng nêu:
+- **chỉ dưới z18.5** — trên đó khung nhìn nằm gọn trong các tile mịn;
+- **pitch quanh 50** — pitch cao kéo vùng xa vào khung, nơi tile thô còn đứng thay.
+
+### 11.3 Sửa
+
+`getStencilConfigForOverlapAndUpdateStencilID` — đúng cái raster và hillshade đã
+dùng cho cảnh này. Tile mịn vẽ trước và đóng dấu stencil; tile thô bị từ chối ở
+chỗ nó định vẽ đè. `fill-extrusion` không cần tới nó chỉ vì hai bản của nó trông
+giống hệt nhau.
+
+**Chỉ áp cho đường một lượt.** Ở đường hai lượt stencil đã có chủ — nó giữ hai mặt
+đồng phẳng trùng nhau khỏi blend hai lần — và một bộ đệm không làm được cả hai
+việc. Lần đầu tôi thay luôn cả hai và làm hỏng fixture `translucent`; fixture đó
+bắt được.
+
+**R-13 (mới):** `building-atlas` mờ một phần (`opacity < 1`) vẫn còn chồng lấn
+giữa hai mức zoom tile.
