@@ -24,6 +24,7 @@ const gl = (window as unknown as {gtelmapsgl: typeof import('@gis/gtelmaps-gl-js
 const params = new URLSearchParams(location.search);
 
 
+
 /**
  * `BUILDING_EXAGGERATION` from the plugin's `config.ts`. Real heights here are
  * 6–18 m over a ~6 km site, which reads flat; the plugin scales them and so must
@@ -199,6 +200,10 @@ function setPaint(layerId: string, prop: string, value: unknown) {
     if (!map.isStyleLoaded()) return;
     map.setPaintProperty(layerId, prop, value as any);
 }
+
+// Reachable from the console and from the screenshot harness: this pane exists
+// to be interrogated, and a comparison you cannot poke at is a poor comparison.
+(window as unknown as {gtelmap: typeof map}).gtelmap = map;
 
 el<HTMLInputElement>('xray').addEventListener('change', (e) => {
     setPaint('glass', 'building-glass-xray', (e.target as HTMLInputElement).checked);
