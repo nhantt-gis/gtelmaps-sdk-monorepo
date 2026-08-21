@@ -11,7 +11,6 @@ html, body { margin: 0; height: 100%; background: #05080c; color: #cfe3f2;
 .pane header { flex: 0 0 auto; padding: 6px 10px; background: #0a1119; border-bottom: 1px solid #16222e;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tag { display: inline-block; padding: 1px 7px; border-radius: 999px; font-weight: 600; font-size: 11px; }
-.tag.ours { background: #16394f; color: #7fd4ff; }
 .tag.ref  { background: #3f2f16; color: #ffc98a; }
 #map, #ref { flex: 1 1 auto; width: 100%; border: 0; }
 code { color: #9fe8ff; font-size: 12px; }

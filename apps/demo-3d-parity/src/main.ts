@@ -76,20 +76,6 @@ const ROOF_BY_MATERIAL: unknown[] = [
     'roof-concrete',
 ];
 
-/**
- * The plugin's `ROOF_SCALE_M`, except for `generic1..4`. Those four have rooftop
- * equipment painted into them, and the plugin maps them once over the building
- * rather than tiling. This layer only tiles, so they get a long repeat instead —
- * the equipment still recurs, just not several times per roof.
- */
-const ROOF_SCALE_BY_MATERIAL: unknown[] = [
-    'match', ['get', 'roof_material'],
-    'metal', 4,
-    'eternit', 4,
-    'concrete', 10,
-    'tiles', 3,
-    24,
-];
 
 const map = new gl.Map({
     container: 'map',
@@ -163,8 +149,13 @@ const map = new gl.Map({
                     'building-atlas-pattern': FACADE_BY_MATERIAL,
                     'building-atlas-glow-pattern': GLOW_BY_MATERIAL,
                     'building-atlas-roof-pattern': ROOF_BY_MATERIAL,
-                    'building-atlas-roof-scale': ROOF_SCALE_BY_MATERIAL,
                     'building-atlas-seed': ['get', 'seed'],
+                    // The plugin's dark-theme fallback. Every feature here shares
+                    // one `subclass_code`, so its per-type table never fires and
+                    // this is the colour it actually uses. Left at the spec
+                    // default of white, the tint *brightens* instead, which is
+                    // what was washing the facades out.
+                    'building-atlas-tint': '#2b3242',
                     // The plugin derives storeys from `num_floors` where the
                     // source has it, and from height over 3.3 m where it does
                     // not. Same rule. Every feature here has the attribute, so
@@ -225,7 +216,6 @@ let pendingMode: string | null = null;
 function setMode(mode: string) {
     el('atlas-controls').hidden = mode !== 'atlas';
     el('glass-controls').hidden = mode !== 'glass';
-    el('mode-label').textContent = `addLayer({type:'building-${mode}'})`;
 
     // `setLayoutProperty` throws outright if the style has not finished loading,
     // and the controls are live from first paint. Remember the choice and apply
