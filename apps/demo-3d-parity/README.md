@@ -15,6 +15,12 @@ node scripts/build-sprite.mjs     # sinh public/sprite từ texture mặt tiền
 pnpm dev                          # http://localhost:5180
 ```
 
+Tile dựng với `--no-clipping`, và đó không phải tuỳ chọn: `building-atlas` trải
+ảnh mái **một lần** lên mỗi footprint, nên nó chỉ đo được cái footprint được đưa
+cho. Một toà nhà bị cắt ở biên tile sẽ được đo hai lần, mỗi nửa một lần, và hai
+nửa nhận hai ánh xạ khác nhau. Khi kéo bản đồ, tile vào ra thì nửa nào đang hiện
+cũng đổi — đọc ra là mái "giật".
+
 `build-tiles.mjs` cần `tippecanoe` trên PATH. Nó đọc
 `sdk/3d-plugins/public/data/overlay/buildings.geojson` (372 toà nhà KCN Châu Đức)
 — **đúng tập dữ liệu bản plugin đang vẽ**, nên hai khung so cùng một thứ chứ

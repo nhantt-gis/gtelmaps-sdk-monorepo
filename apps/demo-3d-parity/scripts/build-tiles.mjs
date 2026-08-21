@@ -67,6 +67,11 @@ execFileSync('tippecanoe', [
     '--no-tile-size-limit',
     '--no-line-simplification',
     '--preserve-input-order',
+    // A building must arrive whole in every tile it touches. `building-atlas`
+    // maps one copy of the roof image across each footprint, and it can only
+    // measure the footprint it is given: a building cut in half at a tile edge
+    // gets two different mappings, one per half, meeting at a visible seam.
+    '--no-clipping',
     // Essential. tippecanoe gzips by default; a static server then serves those
     // bytes without `Content-Encoding: gzip` and the decoder reports
     // "Unimplemented type: 3" from somewhere that says nothing about compression.

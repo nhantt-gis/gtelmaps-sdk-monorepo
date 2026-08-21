@@ -23,6 +23,7 @@ const gl = (window as unknown as {gtelmapsgl: typeof import('@gis/gtelmaps-gl-js
 
 const params = new URLSearchParams(location.search);
 
+
 /**
  * `BUILDING_EXAGGERATION` from the plugin's `config.ts`. Real heights here are
  * 6–18 m over a ~6 km site, which reads flat; the plugin scales them and so must
@@ -284,6 +285,9 @@ map.on('render', () => {
         `${map.getZoom().toFixed(2)}z  ${c.lat.toFixed(5)}, ${c.lng.toFixed(5)}  ` +
         `${map.getBearing().toFixed(0)}° / ${map.getPitch().toFixed(0)}°`;
 });
+
+// Reachable from the console and from the screenshot harness.
+(window as unknown as {map: unknown}).map = map;
 
 map.on('error', (e) => {
     // Loud, because the most likely failure here is a missing tile answered with
