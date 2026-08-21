@@ -32,11 +32,12 @@
         <label><input type="radio" name="mode" value="atlas" /> <code>building-atlas</code></label>
       </div>
       <div id="glass-controls">
-      <label><input type="checkbox" id="xray" /> X-quang <span class="hint">(xuyên nền và nhà khác)</span></label>
+      <label><input type="checkbox" id="xray" checked /> X-quang <span class="hint">(xuyên nền và nhà khác)</span></label>
+      <label><input type="checkbox" id="hidden-edges" checked /> Viền khuất <span class="hint">(mặt sau và mặt dưới)</span></label>
       <label><input type="checkbox" id="solid" /> Đối chiếu <code>fill-extrusion</code> đặc</label>
       <label><input type="checkbox" id="spin" /> Xoay camera <span class="hint">(fresnel chỉ lộ khi xoay)</span></label>
-      <label>Viền <input type="range" id="edge" min="0" max="1" step="0.05" value="0.9" /></label>
-      <label>Nền <input type="range" id="opacity" min="0" max="0.6" step="0.01" value="0.06" /></label>
+      <label>Viền <input type="range" id="edge" min="0" max="1" step="0.05" value="0.5" /></label>
+      <label>Nền <input type="range" id="opacity" min="0" max="0.6" step="0.01" value="0.05" /></label>
       </div>
       <div id="atlas-controls" hidden>
         <label>Đêm <input type="range" id="night" min="0" max="1" step="0.05" value="0" /> <span class="hint">(cửa sổ sáng)</span></label>

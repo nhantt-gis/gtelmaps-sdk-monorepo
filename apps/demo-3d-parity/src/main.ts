@@ -23,9 +23,6 @@ const gl = (window as unknown as {gtelmapsgl: typeof import('@gis/gtelmaps-gl-js
 
 const params = new URLSearchParams(location.search);
 
-const GLASS_COLOR = '#5aa9dd';
-const EDGE_COLOR = '#8fe0ff';
-
 /**
  * `BUILDING_EXAGGERATION` from the plugin's `config.ts`. Real heights here are
  * 6–18 m over a ~6 km site, which reads flat; the plugin scales them and so must
@@ -51,6 +48,49 @@ const FACADE_BY_MATERIAL: unknown[] = [
     'facade-plaster',
 ];
 
+/**
+ * The plugin's `FACADE_GLOW`. A mask says which cells of a facade are glazing,
+ * so it only lines up with the window shape it was drawn for — pairing it with
+ * the facade is not a nicety, it is what keeps the lit windows on the windows.
+ */
+const GLOW_BY_MATERIAL: unknown[] = [
+    'match', ['get', 'facade_material'],
+    'plaster', 'facade-glow-window1',
+    'block', 'facade-glow-window1',
+    'brick', 'facade-glow-window0',
+    'wood', 'facade-glow-window0',
+    'glass', 'facade-glow-glass',
+    'facade-glow-window1',
+];
+
+const ROOF_BY_MATERIAL: unknown[] = [
+    'match', ['get', 'roof_material'],
+    'concrete', 'roof-concrete',
+    'eternit', 'roof-eternit',
+    'metal', 'roof-metal',
+    'tiles', 'roof-tiles',
+    'generic1', 'roof-generic1',
+    'generic2', 'roof-generic2',
+    'generic3', 'roof-generic3',
+    'generic4', 'roof-generic4',
+    'roof-concrete',
+];
+
+/**
+ * The plugin's `ROOF_SCALE_M`, except for `generic1..4`. Those four have rooftop
+ * equipment painted into them, and the plugin maps them once over the building
+ * rather than tiling. This layer only tiles, so they get a long repeat instead —
+ * the equipment still recurs, just not several times per roof.
+ */
+const ROOF_SCALE_BY_MATERIAL: unknown[] = [
+    'match', ['get', 'roof_material'],
+    'metal', 4,
+    'eternit', 4,
+    'concrete', 10,
+    'tiles', 3,
+    24,
+];
+
 const map = new gl.Map({
     container: 'map',
     hash: 'm',
@@ -70,6 +110,17 @@ const map = new gl.Map({
         // at a remote style server would make the demo fail for a reason that
         // has nothing to do with the layers under test.
         sprite: `${location.origin}/sprite/sprite`,
+        // The plugin bakes its shader light and never turns it. MapLibre's default
+        // is `viewport`-anchored, which would swing the lit face round as the
+        // camera rotates. `[1, 38.66, 36.99]` is `normalize(-0.4, -0.5, 0.85)`
+        // from `atlasShader.ts`, carried into tile space — where +Y runs south,
+        // so the middle component changes sign on the way.
+        light: {
+            anchor: 'map',
+            position: [1, 38.66, 36.99],
+            color: '#ffffff',
+            intensity: 0.5,
+        },
         sources: {
             kcn: {
                 type: 'vector',
@@ -100,26 +151,32 @@ const map = new gl.Map({
                 type: 'building-atlas',
                 source: 'kcn',
                 'source-layer': 'building',
-                layout: {visibility: 'none'},
+                layout: {
+                    'visibility': 'none',
+                    // Layout, not paint: whole window bays are baked into the
+                    // tile geometry, so changing this reparses tiles.
+                    'building-atlas-bay-width': ['coalesce', ['get', 'bay_width'], 6],
+                },
                 paint: {
                     'building-atlas-height': HEIGHT,
                     'building-atlas-base': ['get', 'min_height'],
                     'building-atlas-pattern': FACADE_BY_MATERIAL,
-                    'building-atlas-glow-pattern': 'facade-glow-window1',
+                    'building-atlas-glow-pattern': GLOW_BY_MATERIAL,
+                    'building-atlas-roof-pattern': ROOF_BY_MATERIAL,
+                    'building-atlas-roof-scale': ROOF_SCALE_BY_MATERIAL,
                     'building-atlas-seed': ['get', 'seed'],
-                    'building-atlas-roof-color': '#39434f',
-                    'building-atlas-bay-width': ['coalesce', ['get', 'bay_width'], 6],
-                    // The plugin derives storeys from `num_floors` when the
-                    // source has it and from the *exaggerated* height over 3.3 m
-                    // when it does not. Same rule, expressed as the
-                    // metres-per-storey this layer consumes — and divided out of
-                    // the same exaggerated height the geometry uses, or the
-                    // facade would gain 2.4× as many floor lines as storeys.
-                    'building-atlas-floor-height': [
-                        'case',
-                        ['>', ['coalesce', ['get', 'num_floors'], 0], 0],
-                        ['/', HEIGHT, ['get', 'num_floors']],
-                        3.3,
+                    // The plugin derives storeys from `num_floors` where the
+                    // source has it, and from height over 3.3 m where it does
+                    // not. Same rule. Every feature here has the attribute, so
+                    // the fallback only guards a future dataset that does not.
+                    'building-atlas-num-floors': [
+                        'max', 1,
+                        ['round', [
+                            'case',
+                            ['>', ['coalesce', ['get', 'num_floors'], 0], 0],
+                            ['get', 'num_floors'],
+                            ['/', HEIGHT, 3.3],
+                        ]],
                     ],
                     'building-atlas-night': 0,
                 },
@@ -129,14 +186,12 @@ const map = new gl.Map({
                 type: 'building-glass',
                 source: 'kcn',
                 'source-layer': 'building',
+                // Colour, opacity, edge colour, edge opacity and X-ray are all
+                // left unset: the spec defaults *are* the plugin's values now, so
+                // stating them here would only hide a future drift between them.
                 paint: {
                     'building-glass-height': HEIGHT,
                     'building-glass-base': ['get', 'min_height'],
-                    'building-glass-color': GLASS_COLOR,
-                    'building-glass-opacity': 0.06,
-                    'building-glass-edge-color': EDGE_COLOR,
-                    'building-glass-edge-opacity': 0.9,
-                    'building-glass-xray': false,
                 },
             },
         ],
@@ -155,6 +210,9 @@ function setPaint(layerId: string, prop: string, value: unknown) {
 
 el<HTMLInputElement>('xray').addEventListener('change', (e) => {
     setPaint('glass', 'building-glass-xray', (e.target as HTMLInputElement).checked);
+});
+el<HTMLInputElement>('hidden-edges').addEventListener('change', (e) => {
+    setPaint('glass', 'building-glass-xray-hidden-edges', (e.target as HTMLInputElement).checked);
 });
 el<HTMLInputElement>('solid').addEventListener('change', (e) => {
     if (!map.isStyleLoaded()) return;
@@ -195,8 +253,12 @@ for (const input of Array.from(document.querySelectorAll<HTMLInputElement>('inpu
 el<HTMLInputElement>('night').addEventListener('input', (e) => {
     setPaint('atlas', 'building-atlas-night', Number((e.target as HTMLInputElement).value));
 });
+// Bay width decides geometry, so it is a layout property and moving this slider
+// reparses every visible tile. The lag is the honest cost of baking whole window
+// bays into the mesh, and this is the only place a user feels it.
 el<HTMLInputElement>('bay').addEventListener('input', (e) => {
-    setPaint('atlas', 'building-atlas-bay-width', Number((e.target as HTMLInputElement).value));
+    if (!map.isStyleLoaded()) return;
+    map.setLayoutProperty('atlas', 'building-atlas-bay-width', Number((e.target as HTMLInputElement).value));
 });
 el<HTMLInputElement>('edge').addEventListener('input', (e) => {
     setPaint('glass', 'building-glass-edge-opacity', Number((e.target as HTMLInputElement).value));
