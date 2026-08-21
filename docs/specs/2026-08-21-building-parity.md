@@ -213,3 +213,51 @@ là điều kiện của dữ liệu, ghi vào doc của `building-atlas-roof-pa
 README của app demo, chứ không phải thứ sửa được trong shader.
 
 **R-12 (mới):** `building-atlas-roof-pattern` đòi feature vào tile nguyên vẹn.
+
+---
+
+## 11. Đợt thứ tư: mái vẫn biến dạng, và thủ phạm là bản vá của đợt trước
+
+Báo cáo kèm ba ảnh cùng một khu vực ở các mức zoom khác nhau: mái của vài toà bị
+bôi thành vệt, bản vẽ mái tan ra thành gạch ngang.
+
+### 11.1 Tái hiện được, và chỗ trước đó tìm sai
+
+Ba đợt trước đều đo ở z18.2 trở lên và không thấy gì. Tái hiện được ở **z17.9**
+trên khung rộng hơn — báo cáo nói "dưới 18.5" và đúng là như vậy. Bài học: khung
+hình dùng để đo phải là khung hình của người báo, không phải khung tiện tay.
+
+Trước đó đã loại trừ, và các phép đo ấy vẫn đúng: hộp định hướng chính xác cho
+**cả 372** footprint (mọi đỉnh nằm trong hộp của chính nó, biên chuẩn hoá lớn
+nhất đúng bằng 1.0000); UV mái không tràn khỏi [0,1] ở bất kỳ zoom nào; hai bản
+sao của một toà qua hai tile trùng khít từng điểm sau `--no-clipping`.
+
+### 11.2 Nguyên nhân
+
+**Chính chùm tám tap thêm vào ở đợt ba.** Phép thử có đối chứng tách được ngay:
+hạ xuống **một** tap thì mái sạch hẳn còn mặt tiền ở xa lại lấm tấm; tám tap thì
+ngược lại.
+
+Hai bề mặt cần hai cách, và lý do là cấu trúc:
+
+- Ảnh **tường** lặp mỗi ô cửa, nên một chùm tap nằm gọn trong một lần lặp.
+- Ảnh **mái** trải **một bản** suốt toà nhà, nên cùng chùm tap ấy quét qua một
+  phần lớn bản vẽ mái.
+
+Cộng thêm một chỗ ước lượng thô: trục dài của vệt phủ lấy bằng "cái dài hơn trong
+hai đạo hàm theo trục màn hình", chỉ đúng khi hai đạo hàm gần vuông góc trong
+không gian ảnh. Một toà nhà dài nhìn ở phương vị xiên thì không, và chùm tap dài
+gấp mấy lần vệt thật.
+
+Mái cũng không phải trường hợp thu nhỏ: một ảnh trải trọn một mái là xấp xỉ một
+texel mỗi pixel. Nó không cần chùm tap ngay từ đầu.
+
+### 11.3 Điều đáng giữ lại
+
+Ba đợt liên tiếp tôi kết luận "vẫn là răng cưa" và mỗi lần lại thêm một lớp lọc.
+Lớp thứ ba chính là lỗi. Phép thử có đối chứng — tắt hẳn thứ mình vừa thêm — cho
+câu trả lời trong một lần chụp, và lẽ ra phải là bước **đầu tiên** chứ không phải
+bước cuối.
+
+**R-13 (mới):** mặt tiền và mái lấy mẫu khác nhau, và sự khác nhau ấy có lý do
+cấu trúc. Ai gộp chúng lại làm một sẽ làm hỏng một trong hai.
