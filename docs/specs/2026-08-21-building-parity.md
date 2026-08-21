@@ -164,3 +164,52 @@ chỉ số lớp thay cho hai ô rect), nhưng là một hệ thống con mới.
 
 **R-11 (mới):** không có anisotropy, nên tường nhìn ở góc rất nghiêng vẫn răng
 cưa. Cùng một nguyên nhân với R-7 và cùng một đường sửa.
+
+---
+
+## 10. Đợt thứ ba: mái vẫn giật, và nguyên nhân không nằm trong shader
+
+Báo cáo: mái vẫn giật material khi rê chuột, và có cảm giác z-index.
+
+### 10.1 Loại trừ trước, kết luận sau
+
+Ba phép đo, mỗi phép loại một khả năng:
+
+- **Hai khung liên tiếp, camera đứng yên: khác nhau 0,00%.** Không có gì trong
+  đường vẽ thay đổi theo thời gian.
+- **Hai lần nạp trang độc lập cùng camera: khác nhau 0,00%.** Không có bất định
+  trong bucket (thứ tự earcut, v.v.).
+- **Kéo đi rồi `jumpTo` về đúng camera cũ: khác nhau 0,000%, sai lệch kênh lớn
+  nhất 0.** Ảnh trùng khít từng bit.
+
+Chú ý phép thứ ba: làm bằng `panBy` ngược lại thì ra 14% khác nhau — nhưng đó là
+vì `panBy` **không phải phép nghịch của chính nó khi có pitch**, camera về lệch
+0,25 m, tức nửa pixel. Đo sai suýt dẫn tới kết luận sai.
+
+Cũng đã loại: bốn tap lấy mẫu (tắt đi, mái vẫn y như cũ), và ánh xạ UV mái (đo
+tại điểm địa lý cố định, lệch 2–12/255 — đúng bằng sai số của việc chiếu điểm mặt
+đất dưới một cái mái nằm trên cao).
+
+### 10.2 Nguyên nhân
+
+**Dữ liệu vào, không phải shader.** tippecanoe cắt feature theo biên tile. Ba toà
+nhà trong khung nằm vắt qua biên tile z16, nên mỗi tile chỉ nhận **một nửa**
+footprint. `building-atlas` trải ảnh mái một lần lên cái footprint nó được đưa
+cho — nên hai nửa được đo riêng và nhận hai ánh xạ khác nhau.
+
+Và tile thì vào ra liên tục khi kéo bản đồ. Đo trong lúc kéo: giữa cú kéo có lúc
+chỉ còn **một** tile được vẽ, rồi tile mới xuất hiện. Nửa nào đang hiện cũng đổi
+theo, nên mái nhảy — đúng cái "giật material", và hai nửa chồng nhau ở dải buffer
+cho ra đúng cái "cảm giác z-index".
+
+`--no-clipping` khiến mọi tile mang trọn footprint. Đã kiểm: hai bản sao của cùng
+một toà nay trùng khít từng điểm, nên cùng ánh xạ, và việc vẽ chồng trở thành vô
+hình.
+
+### 10.3 Điều kiện phải nói ra
+
+Layer **không có cách nào tự biết** footprint nó nhận đã bị cắt hay chưa. Nên đây
+là điều kiện của dữ liệu, ghi vào doc của `building-atlas-roof-pattern` và vào
+README của app demo, chứ không phải thứ sửa được trong shader.
+
+**R-12 (mới):** `building-atlas-roof-pattern` đòi feature vào tile nguyên vẹn.
