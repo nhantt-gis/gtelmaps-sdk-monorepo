@@ -9,10 +9,12 @@
  * *same* GeoJSON the plugin demo draws (KCN Châu Đức, 372 buildings), so the two
  * panes are showing the same buildings rather than two similar-looking datasets.
  *
- * Three differences are expected and are not defects — the plugin exaggerates
- * height by 2.4×, bakes the camera into its projection matrix, and bypasses
- * colour management entirely. Compare the *behaviour* of the effect (does the
- * rim follow the camera, does the skeleton read, are the tiers right), not pixels.
+ * The plugin's 2.4× height exaggeration lives in its app config, not in its
+ * library, so it is reproduced here as a style expression rather than as a layer
+ * property — see `EXAGGERATION`. Two differences remain and are not defects: the
+ * plugin bakes the camera into its projection matrix, and it bypasses colour
+ * management entirely. Compare the *behaviour* of the effect (does the rim follow
+ * the camera, does the skeleton read, are the tiers right), not pixels.
  */
 
 // The bundle is loaded by a script tag (see index.html), so its export lands on
@@ -23,6 +25,16 @@ const params = new URLSearchParams(location.search);
 
 const GLASS_COLOR = '#5aa9dd';
 const EDGE_COLOR = '#8fe0ff';
+
+/**
+ * `BUILDING_EXAGGERATION` from the plugin's `config.ts`. Real heights here are
+ * 6–18 m over a ~6 km site, which reads flat; the plugin scales them and so must
+ * this pane, or the two are not showing the same buildings.
+ */
+const EXAGGERATION = 2.4;
+
+/** Real metres from the tile, scaled the way the plugin scales them. */
+const HEIGHT: unknown[] = ['*', EXAGGERATION, ['get', 'height']];
 
 /**
  * The plugin bakes `facade_material` into its GeoJSON from a hash of each
@@ -42,13 +54,15 @@ const FACADE_BY_MATERIAL: unknown[] = [
 const map = new gl.Map({
     container: 'map',
     hash: 'm',
-    center: [107.1689, 10.5931],
-    // Close enough that a facade reads as a facade: these are 6–18 m buildings,
-    // and at district zoom the storey lines collapse into texture noise.
-    zoom: 17.3,
-    pitch: 62,
-    bearing: -22,
+    // The reconciliation viewpoint. Close enough that a facade reads as a facade:
+    // even exaggerated these are 14–43 m buildings, and at district zoom the
+    // storey lines collapse into texture noise.
+    center: [107.169352, 10.59153],
+    zoom: 18.15,
+    pitch: 64,
+    bearing: -36.5,
     maxPitch: 85,
+    canvasContextAttributes: { antialias: true },
     style: {
         version: 8,
         // Local sprite, built by `scripts/build-sprite.mjs` from the plugin's own
@@ -76,7 +90,7 @@ const map = new gl.Map({
                 layout: {visibility: 'none'},
                 paint: {
                     'fill-extrusion-color': '#26333f',
-                    'fill-extrusion-height': ['get', 'height'],
+                    'fill-extrusion-height': HEIGHT,
                     'fill-extrusion-base': ['get', 'min_height'],
                     'fill-extrusion-opacity': 1,
                 },
@@ -88,21 +102,23 @@ const map = new gl.Map({
                 'source-layer': 'building',
                 layout: {visibility: 'none'},
                 paint: {
-                    'building-atlas-height': ['get', 'height'],
+                    'building-atlas-height': HEIGHT,
                     'building-atlas-base': ['get', 'min_height'],
                     'building-atlas-pattern': FACADE_BY_MATERIAL,
-                    'building-atlas-glow-pattern': 'facade-glow',
+                    'building-atlas-glow-pattern': 'facade-glow-window1',
                     'building-atlas-seed': ['get', 'seed'],
                     'building-atlas-roof-color': '#39434f',
                     'building-atlas-bay-width': ['coalesce', ['get', 'bay_width'], 6],
                     // The plugin derives storeys from `num_floors` when the
-                    // source has it and from height/3.3 when it does not. Same
-                    // rule, expressed as the metres-per-storey this layer
-                    // consumes, so floor lines land on the storeys exactly.
+                    // source has it and from the *exaggerated* height over 3.3 m
+                    // when it does not. Same rule, expressed as the
+                    // metres-per-storey this layer consumes — and divided out of
+                    // the same exaggerated height the geometry uses, or the
+                    // facade would gain 2.4× as many floor lines as storeys.
                     'building-atlas-floor-height': [
                         'case',
                         ['>', ['coalesce', ['get', 'num_floors'], 0], 0],
-                        ['/', ['get', 'height'], ['get', 'num_floors']],
+                        ['/', HEIGHT, ['get', 'num_floors']],
                         3.3,
                     ],
                     'building-atlas-night': 0,
@@ -114,7 +130,7 @@ const map = new gl.Map({
                 source: 'kcn',
                 'source-layer': 'building',
                 paint: {
-                    'building-glass-height': ['get', 'height'],
+                    'building-glass-height': HEIGHT,
                     'building-glass-base': ['get', 'min_height'],
                     'building-glass-color': GLASS_COLOR,
                     'building-glass-opacity': 0.06,
@@ -190,8 +206,10 @@ el<HTMLInputElement>('opacity').addEventListener('input', (e) => {
 });
 
 // A still frame of a fresnel effect always looks plausible; only motion shows
-// whether the rim actually tracks the camera. So the demo spins by default.
-let spinning = true;
+// whether the rim actually tracks the camera — but a spinning camera also pulls
+// this pane away from the reference pane, which only re-syncs on `moveend`. So
+// the spin is available and off: reconciliation first, fresnel check second.
+let spinning = false;
 el<HTMLInputElement>('spin').addEventListener('change', (e) => {
     spinning = (e.target as HTMLInputElement).checked;
 });

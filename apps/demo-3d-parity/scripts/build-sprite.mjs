@@ -1,6 +1,6 @@
-// Assembles the sprite this demo styles with, out of the same facade textures
-// the 3D plugin uses. Kept in the repo for the same reason as build-tiles.mjs:
-// a comparison you cannot regenerate is not a comparison.
+// Assembles the sprite this demo styles with, out of the same facade and roof
+// textures the 3D plugin uses. Kept in the repo for the same reason as
+// build-tiles.mjs: a comparison you cannot regenerate is not a comparison.
 //
 //   node scripts/build-sprite.mjs [path-to-3d-plugins]
 
@@ -11,35 +11,58 @@ import {fileURLToPath} from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const pluginRoot = process.argv[2] ? resolve(process.argv[2]) : resolve(here, '../../../../3d-plugins');
-const facades = resolve(pluginRoot, 'public/textures/buildings/facades');
+const textures = resolve(pluginRoot, 'public/textures/buildings');
 const outDir = resolve(here, '../public/sprite');
 
-// Downscaled from the source 512²: a facade tile is repeated once per window bay,
-// so it is never magnified, and 128² keeps the whole sheet inside one modest
-// texture. Still a power of two, which `mod()` tiling wants.
-const CELL = 128;
+// The size the plugin itself uploads (`textureArray.ts`, `size: 256`), from the
+// same 512² sources. Matching it matters: at the reconciliation zoom a window
+// bay covers more screen pixels than the cell has texels, so the facade is being
+// *magnified*, and cell resolution is what the eye reads as sharpness.
+const CELL = 256;
+// 16 cells; a square grid keeps the sheet at 1024² rather than a 4096×256 strip.
+const COLUMNS = 4;
 
 // The plugin picks a facade per building from a hash of its id, baked into the
 // GeoJSON as `facade_material`. The same five materials appear here under names
 // the style refers to.
-const FACADES = ['plaster', 'brick', 'block', 'wood', 'glass'];
-const FILE = {
-    plaster: 'plaster_window_diffuse.png',
-    brick: 'brick_window_diffuse.png',
-    block: 'block_window_diffuse.png',
-    wood: 'wood_window_diffuse.png',
-    glass: 'glass_diffuse.png',
+const FACADES = {
+    plaster: 'facades/plaster_window_diffuse.png',
+    brick: 'facades/brick_window_diffuse.png',
+    block: 'facades/block_window_diffuse.png',
+    wood: 'facades/wood_window_diffuse.png',
+    glass: 'facades/glass_diffuse.png',
 };
 
-// One mask for the whole layer, not one per facade. The plugin can afford a
-// per-facade glow layer because it uses a texture array; here the mask is a
-// layer constant (see `building-atlas-glow-pattern`), so this is the closest
-// single choice — it is the mask the plugin pairs with plaster and block, the
-// two most common materials in this dataset.
-const GLOW = 'window1_glow.png';
+// A glow mask marks which cells of a facade are glazing, so it only lines up
+// with the facade whose window shape it was drawn for. The plugin's pairing
+// (`FACADE_GLOW` in its config) is reproduced by the style; all three masks it
+// draws from are packed here.
+const GLOWS = {
+    window0: 'facades/window0_glow.png',
+    window1: 'facades/window1_glow.png',
+    glass: 'facades/glass_glow.png',
+};
+
+// The eight `roof_material` values this dataset actually uses.
+const ROOFS = {
+    concrete: 'roofs/concrete_diffuse.png',
+    eternit: 'roofs/eternit_diffuse.png',
+    metal: 'roofs/metal_diffuse.png',
+    tiles: 'roofs/tiles_diffuse.png',
+    generic1: 'roofs/generic1_diffuse.png',
+    generic2: 'roofs/generic2_diffuse.png',
+    generic3: 'roofs/generic3_diffuse.png',
+    generic4: 'roofs/generic4_diffuse.png',
+};
+
+const CELLS = [
+    ...Object.entries(FACADES).map(([k, f]) => [`facade-${k}`, f]),
+    ...Object.entries(GLOWS).map(([k, f]) => [`facade-glow-${k}`, f]),
+    ...Object.entries(ROOFS).map(([k, f]) => [`roof-${k}`, f]),
+];
 
 function load(name) {
-    return PNG.sync.read(readFileSync(resolve(facades, name)));
+    return PNG.sync.read(readFileSync(resolve(textures, name)));
 }
 
 /** Box-filter downscale. Nearest sampling shimmers badly once a facade tiles. */
@@ -62,35 +85,35 @@ function downscale(src, size) {
     return out;
 }
 
-function paste(sheet, img, ox, opaque) {
+function paste(sheet, img, ox, oy) {
     for (let y = 0; y < img.height; y++) {
         for (let x = 0; x < img.width; x++) {
             const i = (y * img.width + x) << 2;
-            const o = (y * sheet.width + (x + ox)) << 2;
+            const o = ((y + oy) * sheet.width + (x + ox)) << 2;
             sheet.data[o] = img.data[i];
             sheet.data[o + 1] = img.data[i + 1];
             sheet.data[o + 2] = img.data[i + 2];
             // Forced opaque. The per-tile atlas stores premultiplied alpha, so a
-            // facade pixel with alpha 0 would lose its colour outright — and
-            // several of these source images carry an alpha channel that was
-            // never meant to be read as transparency.
-            sheet.data[o + 3] = opaque ? 255 : img.data[i + 3];
+            // pixel with alpha 0 would lose its colour outright — and several of
+            // these source images carry an alpha channel that was never meant to
+            // be read as transparency.
+            sheet.data[o + 3] = 255;
         }
     }
 }
 
-const ids = [...FACADES, 'glow'];
-const sheet = new PNG({width: CELL * ids.length, height: CELL});
+const rows = Math.ceil(CELLS.length / COLUMNS);
+const sheet = new PNG({width: CELL * COLUMNS, height: CELL * rows});
 const index = {};
 
-ids.forEach((id, i) => {
-    const file = id === 'glow' ? GLOW : FILE[id];
-    paste(sheet, downscale(load(file), CELL), i * CELL, true);
-    index[id === 'glow' ? 'facade-glow' : `facade-${id}`] =
-        {x: i * CELL, y: 0, width: CELL, height: CELL, pixelRatio: 1};
+CELLS.forEach(([id, file], i) => {
+    const x = (i % COLUMNS) * CELL;
+    const y = Math.floor(i / COLUMNS) * CELL;
+    paste(sheet, downscale(load(file), CELL), x, y);
+    index[id] = {x, y, width: CELL, height: CELL, pixelRatio: 1};
 });
 
 mkdirSync(outDir, {recursive: true});
 writeFileSync(resolve(outDir, 'sprite.png'), PNG.sync.write(sheet));
 writeFileSync(resolve(outDir, 'sprite.json'), `${JSON.stringify(index, null, 2)}\n`);
-console.log(`sprite: ${ids.length} images at ${CELL}px into ${outDir}`);
+console.log(`sprite: ${CELLS.length} images at ${CELL}px (${sheet.width}×${sheet.height}) into ${outDir}`);
