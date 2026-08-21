@@ -105,7 +105,62 @@ của `run_render_tests.ts` đợt trước, và tìm ra theo đúng cách đó:
 | R-4 | cạnh dọc ở góc | **đóng** |
 | R-5 | `edgeDistance` tràn ở 32768 | **đóng** cho atlas |
 | R-6 | mái không có OMBB và không có `stretch`; **209/372 toà (56%)** dùng texture có thiết bị vẽ sẵn nên sẽ thấy lặp | **mới**, đã chốt không làm; demo giảm nhẹ bằng bước lát ~24 m |
-| R-7 | không mipmap trên atlas theo tile | **mới**, không nhìn ra ở z18.15 |
+| R-7 | không mipmap trên atlas theo tile | **Sai ở bản ghi đầu.** Nó nhìn ra rất rõ ở z18.15 — chỉ là ở vùng **xa**, chỗ tôi không soi. Xem §9. |
 | R-8 | toà nhà vắt qua hai tile lệch pha ô cửa ở mối nối | **mới**, không sửa được trong phạm vi một tile |
 | R-9 | `bays = max(1, round(...))` không cộng được: tường đã dày đỉnh cho ô hẹp hơn | **mới**; mercator không chèn đỉnh nên chỉ chạm globe. Đường lui: cộng dồn theo nhịp góc-đến-góc, ~20 dòng trong cùng hook |
 | R-10 | ngân sách attribute còn **một ô** | **mới**, có cửa chặn và test |
+
+---
+
+## 9. Đợt thứ hai: bốn báo cáo, ba nguyên nhân
+
+Người dùng báo bốn thứ về `building-atlas`: texture không mịn; mái lặp hoa văn;
+hoa văn mái như chuyển động khi kéo chuột; và cửa sổ ban đêm chớp tắt khi kéo
+chuột. Chúng **không** cùng một nguyên nhân, dù ba trong bốn nghe giống nhau.
+
+### 9.1 Chỗ tôi ghi sai lần trước
+
+R-7 ghi "không nhìn ra ở z18.15". Sai. Nó rất rõ — nhưng ở **vùng xa** của cùng
+khung hình, chỗ tôi đã không phóng to để soi. Cắt vùng xa ra và phóng 4× thì mái
+lấm tấm như muối tiêu và mặt tiền tan thành nhiễu. Đo ra con số: một toà nhà ở xa
+phủ **~21 texel trong một pixel**; ngay vùng gần cũng đã 5 texel. Kết luận "không
+nhìn ra" đến từ việc chỉ soi vùng gần.
+
+### 9.2 Ba nguyên nhân
+
+**Mái (báo cáo 2 và 3).** Tám ảnh mái của bản gốc là **bản vẽ mái**, không phải
+vật liệu: lan can chạy quanh bốn cạnh, ống nối hai đầu, giàn thiết bị ở chỗ cố
+định. Lát lặp một bản vẽ như thế thì lan can chạy xuyên giữa mái. Nay map một lần
+lên mỗi toà, theo **hình chữ nhật nhỏ nhất bao quanh footprint**. Hộp song song
+trục không đủ: nhà xưởng xoay 30° thì hộp ấy rộng gấp **2,4 lần** footprint.
+
+Còn "hoa văn mái chuyển động" thì không phải hoa văn chuyển động: đó là vân
+moiré của phép lấy mẫu dưới ngưỡng Nyquist, đổi theo từng bước lưới mẫu dịch đi.
+Không có đại lượng nào trong đường vẽ đổi giữa hai khung hình — đã kiểm bằng số:
+hai khung liên tiếp với camera đứng yên khác nhau **0,00%**.
+
+**Cửa sổ chớp tắt (báo cáo 4).** Không phải răng cưa. `v_seed` là số nguyên chính
+xác, hằng số theo feature, nhưng nội suy phối cảnh trả `V·(1±ε)`, nên `floor` nằm
+đúng trên lưỡi dao của chính nó. Một bước `floor` đẩy đối số hash đi **45,26 rad**
+— đảo hẳn kết quả. Bản gốc khai `flat` cho đúng biến này; bản port bỏ mất. Cộng
+thêm: prelude đặt `mediump` trong khi đối số `sin` lên tới **5,2·10⁴**, ngoài
+khoảng ±2¹⁴ mà `mediump` bảo đảm — `fill_pattern` và `line_pattern` đều đã tự
+nâng lên `highp`, layer này thì chưa.
+
+**Độ mịn (báo cáo 1).** Ảnh gộp chung một atlas **không mang được mipmap**: viền
+chỉ rộng một pixel, nên ngay mức thu nhỏ đầu tiên đã trộn sang ảnh bên cạnh, và
+`IMAGE_PADDING` là hằng số dùng chung với icon nên không nới riêng được. Bản gốc
+tránh được vì nó dùng `sampler2DArray` — mỗi vật liệu một lớp, mipmap và
+anisotropy an toàn theo cấu trúc.
+
+### 9.3 Chỗ đã làm, và chỗ còn lại
+
+Bốn tap trên lưới xoay theo đạo hàm **không phải** mipmap; nó xử lý được khoảng
+2× thu nhỏ, còn vùng xa cần tới mức 4,4. Đo lại vùng xa sau khi sửa: mái đã sạch
+hẳn, mặt tiền đọc ra ô cửa thay vì nhiễu, nhưng tường ở góc rất nghiêng vẫn còn
+răng cưa. Muốn hết hẳn thì layer phải sở hữu texture của chính nó dưới dạng
+`sampler2DArray` như bản gốc — đổi lại còn **rẻ hơn** về vertex attribute (một
+chỉ số lớp thay cho hai ô rect), nhưng là một hệ thống con mới.
+
+**R-11 (mới):** không có anisotropy, nên tường nhìn ở góc rất nghiêng vẫn răng
+cưa. Cùng một nguyên nhân với R-7 và cùng một đường sửa.
