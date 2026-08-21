@@ -307,3 +307,45 @@ bắt được.
 
 **R-13 (mới):** `building-atlas` mờ một phần (`opacity < 1`) vẫn còn chồng lấn
 giữa hai mức zoom tile.
+
+---
+
+## 12. Đợt thứ năm: pitch lớn cho ra "nhiều khối", ở cả hai layer
+
+Báo cáo: pitch nhỏ thì mỗi toà là một khối; pitch ≥ 67 thì thấy nhiều khối hoặc
+geometry thừa. Cả hai layer, và `building-glass` lộ rõ hơn.
+
+### 12.1 Đo
+
+Cùng chỗ, cùng zoom 18.46, chỉ đổi pitch:
+
+| pitch | số tile được vẽ | mức canonical |
+|---|---|---|
+| 58 | 2 | 16 |
+| 67 | 5 | **13, 14, 15, 16** |
+
+Pitch lớn kéo tầm nhìn ra xa, nên MapLibre giữ tile thô đứng thay cho vùng mà
+tile mịn chưa phủ tới. Cùng một toà nhà đến layer nhiều lần, mỗi bản lượng tử hoá
+theo tile của nó — nên các bản lệch nhau vài chục centimet và đọc ra thành "nhiều
+khối".
+
+### 12.2 Hai nguyên nhân, không phải một
+
+**Tile không tồn tại bị trả về 200.** tippecanoe không ghi tile ở chỗ không có gì
+để vẽ, còn SPA fallback của Vite trả `index.html` kèm 200 cho mọi thứ nó không
+tìm thấy. Bộ giải mã gặp HTML ở chỗ chờ protobuf và báo "Unimplemented type: 4" —
+một câu không nói gì về nguyên nhân thật. Tệ hơn: tile đó bị tính là **hỏng** chứ
+không phải **rỗng**, nên MapLibre giữ tile thô để lấp chỗ, **vĩnh viễn**. Sửa
+bằng một middleware trả 404. Sau đó pitch 67 giảm từ bốn mức canonical xuống hai.
+
+**Và phần chồng lấn còn lại.** Một mức thô vẫn còn, hợp lệ, cho vùng chưa tải
+xong. `building-atlas` đã từ chối chồng lấn từ đợt trước; `building-glass` thì
+chưa. Ở chế độ có depth, bản thô nằm sau nên bị che — nhưng X-quang không có depth
+để che, nên nó hiện nguyên thành một cạnh lạ vắt ngang mái. Đó là lý do glass lộ
+rõ hơn atlas.
+
+### 12.3 Điều kiện phải nói ra
+
+**R-14 (mới):** một tile không tồn tại phải được trả về 404, không phải 200. Trả
+200 kèm nội dung khác khiến layer 3D giữ tile thô mãi mãi và vẽ mỗi toà nhà nhiều
+lần. Ghi vào README của app demo.
