@@ -160,6 +160,11 @@ const MODEL_LAYERS = [
         layout: {
             'model-id': 'patrol',
             ...PLACEMENT,
+            // The asset is authored facing the wrong way: at bearing 0 this model
+            // looks south while `truck.glb` looks north. Correcting it belongs in
+            // the style, not in the layer — the plugin does the same thing with
+            // `headingOffset: Math.PI`, and only for this model.
+            'model-bearing': ['+', 180, ['coalesce', ['get', 'bearing'], 0]],
             'model-route-speed': ['coalesce', ['get', 'route_speed'], 0],
             'model-route-offset': ['coalesce', ['get', 'route_offset'], 0],
             'model-route-step': 2,

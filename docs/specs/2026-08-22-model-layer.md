@@ -125,7 +125,54 @@ trên xuống. Sai dấu cho ra một cảnh hợp lý với mọi chiếc xe qu
 `Style.isLoaded()` nay chờ cả model và bake — cùng chỗ nó đã chờ `imageManager`.
 Không có nó, `map.on('idle')` nói dối với bất kỳ ai chụp ảnh, không chỉ với harness.
 
-## 7. Rủi ro còn lại
+## 7. Hai vấn đề của vòng đối soát, và chúng khác hẳn nhau
+
+### 7.1 Gió "cứng" — một lỗi số học, không phải một lựa chọn thẩm mỹ
+
+Pha gió dựng từ vị trí **tuyệt đối** trong mercator. Ở kinh độ 107,17 thì đó là
+31,4 triệu mét về đông và 18,5 triệu về nam, và đối số của `sin` thành **2.676.464
+radian**. Bước float32 ở độ lớn ấy là **0,1595 rad**, trong khi một frame ở 60 Hz
+với `speed 0.9` chỉ dịch nó **0,0150 rad** — **gấp mười lần**.
+
+Đo bằng cách đóng băng đồng hồ (`setNow`) và bước đúng từng frame, cắt sát một
+ngọn cây:
+
+| | frame giống hệt frame trước | tư thế phân biệt / 30 |
+|---|---|---|
+| Trước | **25/29** | **5** |
+| Sau | **0/29** | **30** |
+
+Bản gốc không gặp vì toạ độ cảnh của nó là **mét so với một gốc cục bộ** — vài
+nghìn, không phải vài chục triệu.
+
+Cách sửa: rút gọn phần hằng số của pha về một vòng **trên CPU**, ở double, và để
+shader chỉ cộng phần biến thiên trong nội bộ tile. Tổng còn dưới 190 rad, bước
+float32 là 1,1·10⁻⁵ rad — nhỏ hơn một frame thời gian hơn nghìn lần.
+
+**Và test bắt được một lỗi thứ hai ngay trong bản sửa.** Lần đầu tôi rút gọn bằng
+`mercatorToMetres(canonical)`, vốn neo vào vĩ độ **của từng tile** — đúng cho mọi
+đại lượng cục bộ khác trong shader ấy, sai cho một trường toàn cục. Tile cha và
+tile con lệch **0,38 rad** ở đúng góc chung. Trường gió nay dùng một hằng số
+không phụ thuộc vĩ độ; giá phải trả là bước sóng danh nghĩa, chu kỳ thật bằng
+`bước_sóng · cos(vĩ_độ)` — 1,7% ở site này.
+
+Cộng một lỗi dấu: mercator y tăng về **nam**, nên `dot(mercatorMetres, dir)` với
+`dir = (đông, bắc)` lật gương đợt sóng qua trục đông.
+
+### 7.2 Patrol đi lùi — là asset, nên không sửa một dòng mã nào
+
+Dựng bốn bản ở bearing 0/90/180/270, camera đặt phía nam nhìn lên bắc:
+`patrol.glb` ở bearing 0 quay **mặt về nam**, còn `truck.glb` ở bearing 0 quay
+**về bắc**. Trục trước của patrol được author ngược.
+
+Bản gốc ghi đúng điều đó trong config của nó: `headingOffset: Math.PI` cho cả hai
+nhóm dùng `patrol`, và **không có** cho cả hai nhóm dùng `truck`. Docstring của
+chính nó nói `headingOffset` để "aligning the model's facing with travel".
+
+Nên logic xoay không đổi. Sửa nằm ở **style của demo**, bằng `model-bearing`, đúng
+cơ chế property ấy tồn tại để làm — và đúng chỗ bản gốc đặt `headingOffset`.
+
+## 8. Rủi ro còn lại
 
 | # | Rủi ro | Trạng thái |
 |---|---|---|
@@ -138,3 +185,5 @@ Không có nó, `map.on('idle')` nói dối với bất kỳ ai chụp ảnh, kh
 | MD-7 | Globe: tuyến gần rìa cầu clip sai | **Chấp nhận** — hình học và pha gió vẫn đúng |
 | MD-8 | WebGL1 không thấy gì | **Chấp nhận** — `building-glass` đã lập tiền lệ |
 | MD-9 | `map.on('idle')` không nổ khi có model đang động | **Chấp nhận, ghi rõ** — đặt tốc độ animation và biên độ gió về 0 là lối thoát |
+| MD-10 | Bước sóng gió là danh nghĩa: chu kỳ thật bằng `bước_sóng · cos(vĩ_độ)` | **Mới, chấp nhận** — 1,7% ở vĩ độ 10,6°, và đó là giá của một trường gió liền mạch qua mọi mức zoom |
+| MD-11 | Model có trục trước author ngược cần chỉnh trong style | **Chấp nhận** — `model-bearing` là cơ chế cho việc đó, và bản gốc cũng phải chỉnh bằng `headingOffset` |
