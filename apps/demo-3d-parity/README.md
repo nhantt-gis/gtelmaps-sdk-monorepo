@@ -1,8 +1,9 @@
 # demo-3d-parity
 
-Cổng nghiệm thu bằng mắt cho hai layer type `building-glass` và `building-atlas`:
-cùng một tập nhà, vẽ bằng `gtelmaps-gl-js` qua vector tiles, đặt cạnh bản
-`3d-plugins` để so. Chọn layer bằng hai nút ở góc dưới trái.
+Cổng nghiệm thu bằng mắt cho ba layer type `building-glass`, `building-atlas` và
+`model`: cùng một tập dữ liệu, vẽ bằng `gtelmaps-gl-js` qua vector tiles, đặt cạnh
+bản `3d-plugins` để so. Chọn layer nhà bằng hai nút ở góc dưới trái; model bật tắt
+bằng ô "Model 3D".
 
 ## Chạy
 
@@ -11,6 +12,7 @@ pnpm install                      # từ gốc monorepo
 cd packages/gtelmaps-gl-js && npm run build-dev    # demo nạp thẳng dist/
 cd ../../apps/demo-3d-parity
 node scripts/build-tiles.mjs       # sinh public/tiles từ GeoJSON của 3d-plugins
+node scripts/build-model-tiles.mjs # sinh public/model-tiles và chép public/models
 node scripts/build-sprite.mjs     # sinh public/sprite từ texture mặt tiền của 3d-plugins
 pnpm dev                          # http://localhost:5180
 ```
@@ -33,6 +35,25 @@ có một middleware trả 404 cho đúng việc này.
 `sdk/3d-plugins/public/data/overlay/buildings.geojson` (372 toà nhà KCN Châu Đức)
 — **đúng tập dữ liệu bản plugin đang vẽ**, nên hai khung so cùng một thứ chứ
 không phải hai tập trông giống nhau. Truyền đường dẫn khác làm tham số nếu cần.
+
+`build-model-tiles.mjs` sinh tile cho 5.635 cây, 651 hạ tầng, 100 xe và 100 nhân
+viên, rồi chép các file `.glb` sang `public/models`. Tile model dựng ở **`-z14`**,
+thô hơn tile nhà một cách có chủ ý: layer `model` vẽ một lần cho mỗi cặp
+(tile, model), nên tám mươi tile z16 tốn gấp nhiều lần một chục tile z14 phủ cùng
+diện tích — mà mỗi tile trong số đó vẫn được cull, vốn là lý do đưa instance vào
+tile ngay từ đầu.
+
+Xe và nhân viên **không** phải feature điểm mà là **đường**: một layer `model` đặt
+lên feature đường sẽ mang mỗi bản sao chạy dọc đường ấy thay vì cắm nó tại một
+điểm. Đường được lấy mẫu theo bước quãng đường đều lúc parse tile, và vị trí tính
+trên GPU từ đồng hồ — không có một dòng CPU nào mỗi frame. Tile của chúng cũng cần
+`--no-clipping`: một tuyến phải tới nguyên vẹn ở tile đã nhận nó, mà tile ấy được
+chọn theo chỗ tuyến **bắt đầu**; cắt tuyến ra thì mỗi tile cầm một mẩu khác nhau và
+mover sẽ chạy hết mẩu của mình rồi biến mất.
+
+Nhân viên dùng `patrol.glb` — bản **có xương**, không phải bản `.vat.glb` bake sẵn
+của plugin. Layer tự lấy lại mẫu clip `Di_Bo` ra thành vertex animation texture
+trong worker. Đó là ca plugin chưa từng chạy: `loadRig` của nó không có ai gọi.
 
 `build-sprite.mjs` gom năm ảnh mặt tiền (`plaster`, `brick`, `block`, `wood`,
 `glass`) cộng một mặt nạ cửa sổ thành một sprite. Mọi ảnh bị ép **đục hoàn
@@ -101,3 +122,25 @@ Với `building-atlas`:
   nên mỗi layer chỉ có một ảnh data-driven, và ảnh đó phải là mặt tiền.
 - `building-atlas`: mặt nạ cửa sổ là **hằng số theo layer**, trong khi bản gốc
   ghép mặt nạ theo từng loại mặt tiền. Cùng một lý do.
+- `model`: một mover bị cull cùng tile đã sinh ra nó. Với `maxzoom 14` thì tile
+  rộng ~2,4 km ở vĩ độ này và tuyến dài 0,9–2,2 km, nên actor cách tile nhà nhiều
+  nhất một tile — để hỏng, camera phải zoom sát tới mức actor đã ở rất xa ngoài
+  màn hình. Xem MD-1 trong spec.
+- `model`: picking trúng **điểm neo**, không trúng bóng model. Bóng đúng cần chiếu
+  từng tam giác của từng bản sao.
+- `model`: `map.on('idle')` không nổ khi có model đang động. Đúng hành vi, nhưng
+  sẽ làm bất ngờ một harness — đặt `model-animation-rate` và
+  `model-sway-amplitude` về 0 là lối thoát.
+
+## Đọc số hiệu năng thế nào
+
+`model` vẽ **một draw call cho mỗi cặp (tile, model)**, không phải một cho mỗi bản
+sao. Đo trên khung nhìn phủ khu công nghiệp: **3.535 bản sao trong 16 lượt vẽ
+instanced**, và kéo bản đồ ra khỏi khu thì **về 0** — điều bản gốc không làm được
+vì nó tắt frustum culling.
+
+Thời gian frame dưới SwiftShader **không** đo được GPU. Nhưng tách theo layer thì
+626 cột đèn đắt gấp chín lần 2.747 cái cây, và nguyên nhân nằm ở asset chứ không ở
+renderer: `street_light.glb` có 18.393 đỉnh, trong khi `docs/model-rules.md` của
+chính bản gốc đặt trần 1.500 tam giác cho một prop instance hàng nghìn lần. Bản gốc
+dùng đúng asset ấy và vẽ cả 651 cái mọi frame.

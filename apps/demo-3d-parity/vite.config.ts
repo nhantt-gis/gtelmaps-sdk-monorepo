@@ -19,7 +19,7 @@ const missingTilesAre404 = {
     configureServer(server) {
         server.middlewares.use((req, res, next) => {
             const path = (req.url ?? '').split('?')[0];
-            if (path.startsWith('/tiles/') && path.endsWith('.pbf') && !existsSync(resolve(__dirname, `public${path}`))) {
+            if ((path.startsWith('/tiles/') || path.startsWith('/model-tiles/')) && path.endsWith('.pbf') && !existsSync(resolve(__dirname, `public${path}`))) {
                 res.statusCode = 404;
                 res.end();
                 return;

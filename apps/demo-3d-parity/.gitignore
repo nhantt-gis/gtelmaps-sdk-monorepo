@@ -5,3 +5,7 @@ public/tiles/
 public/gl
 # Sinh lại bằng `node scripts/build-sprite.mjs`.
 public/sprite/
+# Sinh lại bằng `node scripts/build-model-tiles.mjs`, cùng với các file .glb nó
+# chép sang từ 3d-plugins. Mười một megabyte model không thuộc về repo này.
+public/model-tiles/
+public/models/

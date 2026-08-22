@@ -79,6 +79,104 @@ const ROOF_BY_MATERIAL: unknown[] = [
 ];
 
 
+/**
+ * The instance fields the plugin's own adapter reads, in the same order of
+ * precedence: a positive `height` sizes the model to a real height and wins over
+ * `scale`, which is otherwise a plain multiplier.
+ */
+const PLACEMENT = {
+    'model-scale': ['coalesce', ['get', 'scale'], 1],
+    'model-height': ['coalesce', ['get', 'height'], 0],
+    'model-altitude': ['coalesce', ['get', 'altitude'], 0],
+    'model-bearing': ['coalesce', ['get', 'bearing'], 0],
+    'model-pitch': ['coalesce', ['get', 'pitch'], 0],
+    'model-roll': ['coalesce', ['get', 'roll'], 0],
+} as const;
+
+/**
+ * Four kinds of street furniture in ONE layer, not four.
+ *
+ * `model-id` is data-driven, and the bucket sorts a tile's instances into a run
+ * per model, so this costs four draw calls per tile — the same as four layers
+ * would — while keeping one filter, one paint block and one thing to toggle.
+ */
+const INFRA_MODEL = ['match', ['get', 'subclass_code'],
+    'camera', 'camera',
+    'street_light', 'street_light',
+    'power_pole', 'power_pole',
+    'fire_hydrant', 'fire_hydrant',
+    ''] as const;
+
+const MODEL_LAYERS = [
+    {
+        id: 'tree',
+        type: 'model',
+        source: 'props',
+        'source-layer': 'tree',
+        layout: {'model-id': 'tree', ...PLACEMENT},
+        paint: {
+            // The plugin's foliage is authored with an alpha-cut canopy, so the
+            // material is double sided and a leaf card has to read from behind.
+            'model-cull-face': 'none',
+            // `TREE_WIND` from the plugin's config, carried over: amplitude 0.5,
+            // speed 0.9. Its direction is the vector `[1, 0.35]`, which is a
+            // bearing of 70.7 degrees; its phase vector `[0.06, 0.045]` has
+            // magnitude 0.075 rad/m, so the gust front repeats every 84 m.
+            'model-sway-amplitude': 0.5,
+            'model-sway-speed': 0.9,
+            'model-sway-direction': 70.7,
+            'model-sway-wavelength': 84,
+        },
+    },
+    {
+        id: 'infra',
+        type: 'model',
+        source: 'props',
+        'source-layer': 'infra',
+        layout: {'model-id': INFRA_MODEL, ...PLACEMENT},
+    },
+    {
+        id: 'vehicle',
+        type: 'model',
+        source: 'props',
+        'source-layer': 'vehicle',
+        layout: {
+            'model-id': 'truck',
+            ...PLACEMENT,
+            // The feature IS the route: a line, resampled when the tile is
+            // parsed, with the position worked out on the GPU from the clock. No
+            // per-frame CPU work at all, where the plugin rewrites every instance
+            // matrix in the group whenever any one actor moves.
+            'model-route-speed': ['coalesce', ['get', 'route_speed'], 0],
+            'model-route-offset': ['coalesce', ['get', 'route_offset'], 0],
+            'model-route-step': 3,
+        },
+    },
+    {
+        id: 'employee',
+        type: 'model',
+        source: 'props',
+        'source-layer': 'employee',
+        layout: {
+            'model-id': 'patrol',
+            ...PLACEMENT,
+            'model-route-speed': ['coalesce', ['get', 'route_speed'], 0],
+            'model-route-offset': ['coalesce', ['get', 'route_offset'], 0],
+            'model-route-step': 2,
+        },
+        paint: {
+            // `Di_Bo` is the walk cycle. In place, because the layer decides
+            // where the figure stands; without it the clip would stride away
+            // from its anchor and never come back.
+            'model-animation': 'Di_Bo',
+            'model-animation-in-place': true,
+            'model-animation-frame-rate': 24,
+        },
+    },
+];
+
+const MODEL_LAYER_IDS = MODEL_LAYERS.map((layer) => layer.id);
+
 const map = new gl.Map({
     container: 'map',
     hash: 'm',
@@ -98,6 +196,24 @@ const map = new gl.Map({
         // at a remote style server would make the demo fail for a reason that
         // has nothing to do with the layers under test.
         sprite: `${location.origin}/sprite/sprite`,
+        // The glTF files the `model` layers place, copied from the plugin by
+        // `scripts/build-model-tiles.mjs`. Naming the whole set here rather than
+        // putting a URL on each feature is what lets the layer batch: every copy
+        // of one model is a single instanced draw call per tile, and the files
+        // are fetched before the first tile that needs them arrives.
+        models: {
+            tree: `${location.origin}/models/tree.glb`,
+            camera: `${location.origin}/models/camera.glb`,
+            street_light: `${location.origin}/models/street_light.glb`,
+            power_pole: `${location.origin}/models/power_pole.glb`,
+            fire_hydrant: `${location.origin}/models/fire_hydrant.glb`,
+            truck: `${location.origin}/models/truck.glb`,
+            // The rigged original, not the plugin's pre-baked companion: the
+            // layer resamples the clip out of the glTF itself, on a worker. That
+            // is the case the plugin never implemented — its own `loadRig` has no
+            // callers — so one file covers both the mesh and the animation.
+            patrol: `${location.origin}/models/patrol.glb`,
+        },
         // The plugin bakes its shader light and never turns it. MapLibre's default
         // is `viewport`-anchored, which would swing the lit face round as the
         // camera rotates. `[1, 38.66, 36.99]` is `normalize(-0.4, -0.5, 0.85)`
@@ -115,6 +231,17 @@ const map = new gl.Map({
                 tiles: [`${location.origin}/tiles/{z}/{x}/{y}.pbf`],
                 minzoom: 10,
                 maxzoom: 16,
+            },
+            // Deliberately coarser than the buildings. A model layer draws once
+            // per (tile, model), so overzooming a dozen z14 tiles costs a
+            // fraction of what eighty z16 tiles would over the same ground — and
+            // each of the dozen still culls, which is the reason for putting
+            // instances in tiles at all.
+            props: {
+                type: 'vector',
+                tiles: [`${location.origin}/model-tiles/{z}/{x}/{y}.pbf`],
+                minzoom: 10,
+                maxzoom: 14,
             },
         },
         layers: [
@@ -187,6 +314,7 @@ const map = new gl.Map({
                     'building-glass-base': ['get', 'min_height'],
                 },
             },
+            ...MODEL_LAYERS,
         ],
     } as any,
 });
@@ -210,6 +338,14 @@ el<HTMLInputElement>('xray').addEventListener('change', (e) => {
 });
 el<HTMLInputElement>('hidden-edges').addEventListener('change', (e) => {
     setPaint('glass', 'building-glass-xray-hidden-edges', (e.target as HTMLInputElement).checked);
+});
+el<HTMLInputElement>('wind').addEventListener('input', (e) => {
+    setPaint('tree', 'model-sway-amplitude', Number((e.target as HTMLInputElement).value));
+});
+el<HTMLInputElement>('models').addEventListener('change', (e) => {
+    if (!map.isStyleLoaded()) return;
+    const visibility = (e.target as HTMLInputElement).checked ? 'visible' : 'none';
+    for (const id of MODEL_LAYER_IDS) map.setLayoutProperty(id, 'visibility', visibility);
 });
 el<HTMLInputElement>('solid').addEventListener('change', (e) => {
     if (!map.isStyleLoaded()) return;
