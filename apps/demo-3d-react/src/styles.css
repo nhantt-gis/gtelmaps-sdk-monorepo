@@ -1,0 +1,679 @@
+/*
+ * Bộ áo mượn từ `3d-plugins/apps/demo-3d-react/src/styles.css`.
+ *
+ * Giữ **nguyên tên class** (`cd-*`, `#hud-title`) chứ không
+ * đặt lại theo ý mình: mục đích là hai trang trông giống nhau, và tên trùng thì
+ * so bằng mắt hay bằng ảnh chụp đều thẳng thắn hơn.
+ *
+ * Chỉ chép phần dùng đến. Bỏ hẳn class của những tính năng fork chưa có —
+ * `.cd-xray-*` (bóc tầng), `.cd-explore-*` (camera tự do),
+ * `.maplibregl-ctrl-underground` (khoét đất), `.cd-layerctrl-*` (flyout chọn lớp,
+ * ở đây gộp vào tab Lớp nền), `.cd-popup`/`.cd-card-*` (popup chi tiết) và cả
+ * `#loading`/`#boot` (lớp phủ khởi tạo — trang này vào thẳng bản đồ). Chép chúng
+ * vào là để lại một đống luật không ai dùng, và người đọc sau sẽ đi tìm cái tính
+ * năng không tồn tại.
+ *
+ * Không `@import 'maplibre-gl.css'` ở đây: bản gốc làm thế, còn trang này nhập
+ * CSS của fork ở `src/main.tsx`, ngay TRƯỚC file này. Thứ tự ấy là bắt buộc —
+ * các quy tắc `.maplibregl-ctrl-*` bên dưới là ghi đè, và ghi đè thì phải đứng
+ * sau.
+ */
+
+:root {
+  --bg-0: #0b1220;
+  --bg-1: #111827;
+  --cyan: #22d3ee;
+  --green: #22c55e;
+  --amber: #f59e0b;
+  --red: #ef4444;
+  --gray: #6b7280;
+  --text: #e5f6fb;
+  --text-dim: #93b4c4;
+  --panel: rgba(11, 18, 32, 0.82);
+  --border: rgba(34, 211, 238, 0.35);
+  --field: rgba(11, 18, 32, 0.7);
+}
+
+/* Light theme — overlay UI (HUD, layer/map controls, dashboard panel, popup)
+   flips with the basemap. Applied by main.ts via
+   `document.documentElement.dataset.theme = 'light' | 'dark'`, kept in sync with
+   the active basemap's `themeId` (the 3D map itself is themed separately via the
+   stack rebuild). Only the neutral palette flips — the cyan/green/amber/red
+   accents stay identical so the command-center identity is preserved. */
+:root[data-theme='light'] {
+  --bg-0: #e9eef4;
+  --bg-1: #d7e0ea;
+  --text: #16232f;
+  --text-dim: #51697a;
+  --panel: rgba(248, 251, 253, 0.9);
+  --border: rgba(18, 140, 165, 0.42);
+  --field: #ffffff;
+}
+
+/* MapLibre's default control icons are dark SVGs inverted to light for the dark
+   panels; on the light panel keep them dark (near-black) instead. Higher
+   specificity than the base `.maplibregl-ctrl-icon` rule, so it wins. */
+:root[data-theme='light'] .maplibregl-ctrl-group button .maplibregl-ctrl-icon {
+  filter: brightness(0) invert(0.24);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--bg-0);
+  color: var(--text);
+  font-family: 'Be Vietnam Pro', system-ui, sans-serif;
+  overflow: hidden;
+}
+
+#map {
+  position: absolute;
+  inset: 0;
+}
+
+.maplibregl-canvas {
+  outline: none;
+}
+
+/* ---- HUD tiêu đề ---- */
+#hud-title[hidden] {
+  display: none;
+}
+#hud-title {
+  position: absolute;
+  top: 18px;
+  left: 18px;
+  z-index: 5;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 18px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 0 24px rgba(34, 211, 238, 0.12), inset 0 0 18px rgba(34, 211, 238, 0.06);
+}
+#hud-title h1 {
+  margin: 0;
+  font-size: 15px;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+  color: var(--text);
+}
+#hud-title p {
+  margin: 2px 0 0;
+  font-size: 11px;
+  color: var(--text-dim);
+  letter-spacing: 0.04em;
+}
+.hud-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--cyan);
+  box-shadow: 0 0 12px var(--cyan), 0 0 4px #fff;
+  animation: pulse-dot 2s infinite ease-in-out;
+}
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(0.7);
+  }
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════
+ *  EVENT DEBUGGER PANEL (chỉ `?debug=true`) — góc giữa-dưới, thử sự kiện iframe
+ * ════════════════════════════════════════════════════════════════════════ */
+.cd-evtdbg {
+  position: fixed;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: min(880px, 96vw);
+  pointer-events: none; /* chỉ con phần tử con nhận click → không chặn map ngoài panel */
+  font-family: 'Be Vietnam Pro', system-ui, sans-serif;
+}
+.cd-evtdbg > * {
+  pointer-events: auto;
+}
+
+/* Panel nội dung — CHIỀU CAO CỐ ĐỊNH, nằm DƯỚI thanh toggle; mở/đóng = slide. */
+.cd-evtdbg-panel {
+  width: 100%;
+  height: 0;
+  opacity: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: 14px 14px 0 0;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.55), inset 0 0 18px rgba(34, 211, 238, 0.05);
+  transition: height 0.32s ease, opacity 0.25s ease;
+}
+.cd-evtdbg.open .cd-evtdbg-panel {
+  height: var(--evtdbg-h, min(440px, 40vh));
+  opacity: 0.95;
+}
+
+/* Thanh tab. */
+.cd-evtdbg-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 10px 12px 0;
+  border-bottom: 1px solid rgba(34, 211, 238, 0.16);
+}
+.cd-evtdbg-tab {
+  flex: 1;
+  padding: 8px 6px;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 9px 9px 0 0;
+  background: color-mix(in srgb, var(--bg-1) 50%, transparent);
+  color: var(--text-dim);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+.cd-evtdbg-tab:hover {
+  color: var(--text);
+  border-color: rgba(34, 211, 238, 0.25);
+}
+.cd-evtdbg-tab.is-active {
+  color: #1a1205;
+  background: linear-gradient(150deg, #fbbf24, var(--amber));
+  border-color: var(--amber);
+  box-shadow: 0 0 14px rgba(245, 158, 11, 0.35);
+}
+
+/* Vùng nội dung tab — cuộn DUY NHẤT (một thanh scroll cho cả panel). */
+.cd-evtdbg-body {
+  flex: 1;
+  min-height: 0; /* cho phép flex-child cuộn thay vì tràn */
+  padding: 12px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(34, 211, 238, 0.35) transparent;
+}
+.cd-evtdbg-body::-webkit-scrollbar {
+  width: 9px;
+}
+.cd-evtdbg-body::-webkit-scrollbar-track {
+  background: transparent;
+  margin: 4px 0;
+}
+.cd-evtdbg-body::-webkit-scrollbar-thumb {
+  background: rgba(34, 211, 238, 0.3);
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+}
+.cd-evtdbg-body::-webkit-scrollbar-thumb:hover {
+  background: rgba(34, 211, 238, 0.55);
+  background-clip: padding-box;
+}
+.cd-evtdbg-pane {
+  display: none;
+  flex-direction: column;
+  gap: 8px;
+}
+.cd-evtdbg-pane.is-active {
+  display: flex;
+  animation: cdEvtFade 0.25s ease;
+}
+@keyframes cdEvtFade {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Tiêu đề mục — tên tiếng Việt + mã sự kiện tương ứng. */
+.cd-sim-sec {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 4px;
+}
+.cd-sim-sec-t {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.cd-sim-sec-evt {
+  font-family: 'SFMono-Regular', ui-monospace, Menlo, monospace;
+  font-size: 9.5px;
+  color: var(--cyan);
+  opacity: 0.65;
+  white-space: nowrap;
+}
+
+/* Chips lọc trạng thái. */
+.cd-sim-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.cd-sim-chip {
+  --chip: var(--cyan);
+  padding: 5px 12px;
+  border: 1px solid color-mix(in srgb, var(--chip) 55%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--chip) 12%, transparent);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+.cd-sim-chip.on {
+  background: var(--chip);
+  color: #0b1220;
+  box-shadow: 0 0 12px color-mix(in srgb, var(--chip) 50%, transparent);
+}
+.cd-sim-chip.ghost { --chip: var(--text-dim); }
+
+/* Hàng nút hành động + bộ lọc. */
+.cd-sim-actions, .cd-sim-filter { display: flex; flex-wrap: wrap; gap: 6px; }
+.cd-sim-act {
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: rgba(34, 211, 238, 0.14);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.cd-sim-act:hover { background: rgba(34, 211, 238, 0.26); border-color: var(--cyan); }
+.cd-sim-act.ghost { background: rgba(107, 114, 128, 0.16); }
+.cd-sim-act.ghost:hover { background: rgba(107, 114, 128, 0.3); border-color: var(--text-dim); }
+/* Nút chính (nổi bật) — vd Tạm dừng/Chạy tiếp trong thanh điều khiển phát. */
+.cd-sim-act.primary {
+  background: var(--cyan);
+  border-color: var(--cyan);
+  color: #062430;
+}
+.cd-sim-act.primary:hover { background: #4fe3f5; border-color: #4fe3f5; }
+
+/* Thanh ĐIỀU KHIỂN PHÁT: gom Chạy tất cả · Tạm dừng · stepper tốc độ vào một khối. */
+.cd-sim-playbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: rgba(34, 211, 238, 0.05);
+}
+
+/* Stepper tốc độ liền khối: [−][×N][+]. */
+.cd-sim-stepper {
+  display: inline-flex;
+  align-items: stretch;
+  margin-left: auto;               /* đẩy về mép phải cho gọn */
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  overflow: hidden;
+  background: rgba(34, 211, 238, 0.12);
+}
+.cd-sim-stepper button {
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.cd-sim-stepper button:hover:not(:disabled) { background: rgba(34, 211, 238, 0.28); }
+.cd-sim-stepper button:disabled { opacity: 0.35; cursor: default; }
+.cd-sim-stepper-val {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 38px;
+  padding: 0 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--cyan);
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+}
+.cd-sim-input {
+  flex: 1;
+  min-width: 90px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--field);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 12px;
+}
+.cd-sim-input::placeholder { color: var(--text-dim); }
+select.cd-sim-input option { background: var(--bg-1); color: var(--text); }
+
+/* Danh sách + hàng. */
+.cd-sim-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.cd-sim-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid rgba(34, 211, 238, 0.16);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg-1) 55%, transparent);
+  color: var(--text);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.13s ease, border-color 0.13s ease;
+}
+.cd-sim-row:hover { background: color-mix(in srgb, var(--bg-1) 85%, transparent); border-color: var(--cyan); }
+.cd-sim-row.sel { border-color: var(--amber); box-shadow: inset 0 0 0 1px var(--amber); }
+.cd-sim-row.check input[type='checkbox'] { accent-color: var(--cyan); width: 15px; height: 15px; cursor: pointer; }
+.cd-sim-row-name { flex: 1; font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cd-sim-row-sub { font-size: 11px; color: var(--text-dim); white-space: nowrap; }
+.cd-sim-dot { flex: none; width: 9px; height: 9px; border-radius: 999px; box-shadow: 0 0 7px currentColor; }
+.cd-sim-row.seg { align-items: flex-start; }
+.cd-sim-seq {
+  flex: none;
+  width: 20px; height: 20px;
+  display: grid; place-items: center;
+  border-radius: 999px;
+  background: linear-gradient(150deg, #fbbf24, var(--amber));
+  color: #1a1205;
+  font-size: 11px; font-weight: 700;
+}
+.cd-sim-seg-col { display: flex; flex-direction: column; gap: 2px; overflow: hidden; }
+
+/* Banner thông báo kết quả lọc. */
+.cd-sim-banner {
+  padding: 6px 10px;
+  border-left: 3px solid var(--amber);
+  border-radius: 6px;
+  background: rgba(245, 158, 11, 0.1);
+  color: var(--text);
+  font-size: 12px;
+}
+.cd-sim-empty {
+  padding: 10px;
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 12px;
+  font-style: italic;
+}
+
+/* Thẻ chi tiết trả về từ map. */
+.cd-sim-detail {
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: rgba(34, 211, 238, 0.06);
+}
+.cd-sim-detail-h {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--cyan);
+  margin-bottom: 5px;
+}
+.cd-sim-detail-r { display: flex; gap: 10px; padding: 2px 0; font-size: 12.5px; }
+.cd-sim-detail-k { flex: none; width: 90px; color: var(--text-dim); }
+.cd-sim-detail-v { flex: 1; color: var(--text); }
+
+/* Thanh toggle — HANDLE nằm TRÊN đỉnh panel; đóng lại thì đây là toàn bộ widget. */
+.cd-evtdbg-toggle {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: -1px; /* liền mạch với viền trên của panel */
+  padding: 7px 18px;
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: 12px 12px 0 0;
+  background: var(--panel);
+  backdrop-filter: blur(10px);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.45);
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+.cd-evtdbg-toggle:hover {
+  color: var(--cyan);
+  border-color: var(--cyan);
+}
+.cd-evtdbg-caret {
+  color: var(--amber);
+  font-size: 11px;
+}
+
+
+/* ---- Điều khiển bản đồ (command-center) ----
+   Mỗi nút là một ô navy bo góc RIÊNG (có khe hở), viền + glow cyan khi hover,
+   icon/text màu sáng. Áp cho zoom +/-, la bàn, nút 2D/3D và fullscreen. */
+.maplibregl-ctrl-group {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  border-radius: 0;
+}
+.maplibregl-ctrl-bottom-right {
+  right: 8px;
+  bottom: 8px;
+  z-index: 4; /* trên canvas Explore (z-index:3) → nút Explore 3D vẫn bấm được để thoát */
+}
+.maplibregl-ctrl-bottom-right .maplibregl-ctrl {
+  margin: 0 8px 8px 0;
+}
+.maplibregl-ctrl-group button {
+  width: 38px;
+  height: 38px;
+  margin: 0 0 8px 0;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+/* Hai nút zoom nằm chung nhóm → giữ khe hở, không kẻ đường phân cách dính liền. */
+.maplibregl-ctrl-group button + button {
+  border-top: 1px solid var(--border);
+}
+.maplibregl-ctrl-group button:last-child {
+  margin-bottom: 0;
+}
+.maplibregl-ctrl-group button:hover {
+  background: var(--bg-1);
+  border-color: var(--cyan);
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.5), 0 0 16px rgba(34, 211, 238, 0.28);
+}
+.maplibregl-ctrl-group button:focus {
+  outline: none;
+  border-color: var(--cyan);
+}
+/* MapLibre mặc định ép lại border-radius khi nút :focus (first/last/only-child)
+   → bo góc biến mất khi click. Ghi đè cùng specificity để giữ bo góc 10px. */
+.maplibregl-ctrl-group button:focus:first-child,
+.maplibregl-ctrl-group button:focus:last-child,
+.maplibregl-ctrl-group button:focus:only-child {
+  border-radius: 10px;
+}
+.maplibregl-ctrl-group button:disabled {
+  opacity: 0.4;
+}
+/* Icon SVG mặc định của MapLibre có màu tối → đảo thành sáng cho hợp tone. */
+.maplibregl-ctrl-group button .maplibregl-ctrl-icon {
+  filter: brightness(0) invert(0.92);
+}
+.maplibregl-ctrl-group:not(:empty) {
+  box-shadow: none;
+}
+/* Nút 2D/3D dùng CHỮ thay vì icon. */
+.maplibregl-ctrl-pitchtoggle {
+  font-family: 'Be Vietnam Pro', system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text);
+}
+
+
+/* Lưới bật/tắt lớp (tab "Lớp nền" của panel mô phỏng Dashboard). */
+.cd-sim-grouplbl {
+  margin: 8px 0 2px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.cd-sim-toggles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 8px;
+}
+.cd-sim-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--bg-1) 55%, transparent);
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.cd-sim-toggle:hover { border-color: var(--cyan); }
+.cd-sim-toggle input[type='checkbox'] { accent-color: var(--cyan); width: 14px; height: 14px; cursor: pointer; }
+.cd-sim-toggle span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* X-Ray control (tab Công trình): Solid/X-Ray + dãy tầng + explode — style tham khảo control legacy. */
+.cd-sim-seg { display: flex; gap: 6px; }
+.cd-sim-seg-btn {
+  flex: 1;
+  height: 32px;
+  font: 600 12.5px 'Be Vietnam Pro', system-ui, sans-serif;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+.cd-sim-seg-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+.cd-sim-seg-btn.on { border-color: var(--cyan); color: var(--cyan); background: var(--bg-1); }
+
+.cd-sim-rail { display: flex; flex-direction: column; gap: 6px; max-height: 40vh; overflow-y: auto; }
+.cd-sim-rail-btn {
+  height: 32px;
+  padding: 0 12px;
+  font: 600 12.5px 'Be Vietnam Pro', system-ui, sans-serif;
+  text-align: left;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+.cd-sim-rail-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+.cd-sim-rail-btn.on { border-color: var(--cyan); color: var(--cyan); background: var(--bg-1); }
+
+.cd-sim-explode { display: flex; flex-direction: column; gap: 5px; padding-top: 4px; }
+.cd-sim-explode-label { font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-dim); }
+.cd-sim-explode-range { width: 100%; height: 16px; margin: 0; cursor: pointer; accent-color: var(--cyan); }
+
+/* ════════════════════════════════════════════════════════════════════════
+ *  Phần riêng của trang này — không có trong bộ áo mượn về
+ * ════════════════════════════════════════════════════════════════════════ */
+
+/* Số đọc viewport, góc trái dưới. Không có trong bộ áo mượn về: nó là thứ đọc ra
+   để dán vào hash `#m=` khi cần quay lại đúng một khung nhìn. */
+#readout {
+  position: fixed;
+  left: 12px;
+  bottom: 12px;
+  z-index: 6;
+  padding: 5px 9px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--panel);
+  backdrop-filter: blur(8px);
+  font-family: 'SFMono-Regular', ui-monospace, Menlo, monospace;
+  font-size: 11px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  pointer-events: none;
+}
+#readout .err {
+  color: var(--red);
+}
+
+/* Nhãn thanh trượt có kèm giá trị: nhãn trái, số phải. `.cd-sim-explode-label`
+   của bộ gốc chỉ có nhãn, mà ở đây năm thanh trượt đều cần đọc được số. */
+.cd-sim-explode-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.cd-sim-val {
+  font-family: 'SFMono-Regular', ui-monospace, Menlo, monospace;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--cyan);
+}
+
+/* Gợi ý dưới một ô công tắc — chỗ nói vì sao ô ấy tồn tại. */
+.cd-sim-note {
+  margin: -2px 0 2px;
+  font-size: 10.5px;
+  line-height: 1.45;
+  color: var(--text-dim);
+}

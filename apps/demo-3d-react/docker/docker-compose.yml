@@ -1,0 +1,45 @@
+# demo-3d-react — một service, chỉ chế độ production.
+#
+# Muốn phát triển thì chạy `task dev` (Vite trên host, cổng 5180, có HMR). Đóng
+# gói Vite dev server vào container không đem lại gì ở đây: mã nguồn vẫn phải
+# bind-mount, và fork gl-js vẫn phải dựng sẵn trên host.
+#
+#   task docker:build   dựng image
+#   task docker:up      chạy nền, http://localhost:8180
+#   task docker:logs    xem log
+#   task docker:down    dừng
+#
+# Mọi đường dẫn tương đối trong file này tính từ chính thư mục docker/.
+name: gtelmaps-demo-3d-react
+
+services:
+  app:
+    image: ${APP_IMAGE:-10.0.0.21:8082/gis/gtelmaps/demo-3d-react:1.0.0-alpha.1}
+    build:
+      # GỐC KHO — bản build cần cả packages/ lẫn pnpm-lock.yaml, không chỉ app.
+      context: ../../..
+      dockerfile: apps/demo-3d-react/docker/Dockerfile
+    container_name: ${APP_NAME:-gtelmaps-demo-3d-react}
+    ports:
+      # 8180 để không đụng 5180 của `task dev`.
+      - "${APP_PORT:-8180}:80"
+    volumes:
+      # 31 MB tile/model/texture/sprite/style/api — KHÔNG nằm trong image.
+      #
+      # Cây này sinh ra từ sdk/3d-plugins/public/data (kho ngoài monorepo, không
+      # có git remote) bằng tippecanoe + sqlite3, và hai file
+      # models/camera_cone*.glb thì không script nào sinh lại được. Vì vậy nó là
+      # dữ liệu mang theo, không phải thứ image tự dựng.
+      #
+      # HỆ QUẢ: image này một mình KHÔNG chạy được ở máy khác. Mang đi thì phải
+      # mang theo cả thư mục public/.
+      - ${PUBLIC_DIR:-../public}:/srv/public:ro
+    environment:
+      TZ: ${TZ:-Asia/Ho_Chi_Minh}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/"]
+      interval: 30s
+      timeout: 3s
+      start_period: 5s
+      retries: 3

@@ -44,3 +44,7 @@ package-lock.json
 yarn.lock
 pnpm-lock.yaml
 .pnpm-store
+
+# Claude Code — ghi chép, spec và rules cục bộ. Tham chiếu khi phát triển,
+# không thuộc về repo. `settings.local.json` vốn đã bị gitignore toàn cục.
+.claude/

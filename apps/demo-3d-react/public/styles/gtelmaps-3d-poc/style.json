@@ -1,0 +1,999 @@
+{
+  "version": 8,
+  "sprite": "/sprites/gtelmaps-3d-poc/sprite",
+  "models": {
+    "tree": "/models/tree.glb",
+    "camera": "/models/camera.glb",
+    "street_light": "/models/street_light.glb",
+    "power_pole": "/models/power_pole.glb",
+    "fire_hydrant": "/models/fire_hydrant.glb",
+    "truck": "/models/truck.glb",
+    "patrol": "/models/patrol.glb",
+    "camera_cone": "/models/camera_cone.glb",
+    "camera_cone_edges": "/models/camera_cone_edges.glb"
+  },
+  "textures": {
+    "concrete-alpha": "/textures/concrete-alpha.png",
+    "road-asphalt": "/textures/road-asphalt.png",
+    "industrial-ground": "/textures/industrial-ground.png",
+    "soil-alpha": "/textures/soil-alpha.png",
+    "grass-alpha": "/textures/grass-alpha.png",
+    "water-normals": "/textures/water-normals.jpg"
+  },
+  "sky": {
+    "sky-color": "#0d1b2a",
+    "horizon-color": "#24506b"
+  },
+  "light": {
+    "anchor": "map",
+    "position": [
+      1,
+      38.66,
+      36.99
+    ],
+    "color": "#ffffff",
+    "intensity": 0.5
+  },
+  "shadow": {
+    "azimuth": 135,
+    "elevation": 40,
+    "intensity": 1
+  },
+  "sources": {
+    "basemap": {
+      "type": "vector",
+      "tiles": [
+        "/tiles/basemap/{z}/{x}/{y}.pbf"
+      ],
+      "minzoom": 8,
+      "maxzoom": 16
+    },
+    "overlay": {
+      "type": "vector",
+      "tiles": [
+        "/tiles/overlay/{z}/{x}/{y}.pbf"
+      ],
+      "minzoom": 8,
+      "maxzoom": 16
+    }
+  },
+  "layers": [
+    {
+      "id": "bg",
+      "type": "background",
+      "paint": {
+        "background-color": "#070d14"
+      }
+    },
+    {
+      "id": "zone_mask",
+      "type": "fill-3d",
+      "source": "basemap",
+      "source-layer": "boundary",
+      "filter": [
+        "==",
+        [
+          "get",
+          "subclass_code"
+        ],
+        "zone"
+      ],
+      "layout": {
+        "visibility": "visible"
+      },
+      "paint": {
+        "fill-3d-color": "#3a404b",
+        "fill-3d-altitude": 0,
+        "fill-3d-receive-shadows": true
+      }
+    },
+    {
+      "id": "ground",
+      "type": "fill-3d",
+      "source": "basemap",
+      "source-layer": "landuse",
+      "layout": {
+        "visibility": "visible"
+      },
+      "paint": {
+        "fill-3d-textures": [
+          "concrete-alpha",
+          "road-asphalt",
+          "industrial-ground",
+          "soil-alpha"
+        ],
+        "fill-3d-texture-index": [
+          "match",
+          [
+            "get",
+            "material"
+          ],
+          "road-asphalt",
+          1,
+          "industrial-ground",
+          2,
+          "soil-alpha",
+          3,
+          0
+        ],
+        "fill-3d-texture-size": 42,
+        "fill-3d-texture-latitude": 10.588,
+        "fill-3d-brightness": 0.85,
+        "fill-3d-receive-shadows": true
+      }
+    },
+    {
+      "id": "grass",
+      "type": "fill-3d",
+      "source": "basemap",
+      "source-layer": "landcover",
+      "layout": {
+        "visibility": "visible"
+      },
+      "paint": {
+        "fill-3d-textures": [
+          "grass-alpha"
+        ],
+        "fill-3d-texture-size": 28,
+        "fill-3d-texture-latitude": 10.588,
+        "fill-3d-brightness": 1.037,
+        "fill-3d-receive-shadows": true
+      }
+    },
+    {
+      "id": "water",
+      "type": "water-3d",
+      "source": "basemap",
+      "source-layer": "water",
+      "layout": {
+        "visibility": "visible"
+      },
+      "paint": {
+        "water-3d-color": "#14597b",
+        "water-3d-shallow-color": "#3fdcef",
+        "water-3d-opacity": 0.92,
+        "water-3d-wave-texture": "water-normals",
+        "water-3d-wave-size": 20,
+        "water-3d-wave-latitude": 10.588,
+        "water-3d-wave-strength": 0.6,
+        "water-3d-sun-intensity": 0.9,
+        "water-3d-reflection-layers": [
+          "glass",
+          "atlas",
+          "tree",
+          "vehicle",
+          "employee",
+          "network",
+          "zone_wall"
+        ],
+        "water-3d-reflection-intensity": 0.65,
+        "water-3d-wave-speed": 0.03,
+        "water-3d-reflection": "scene"
+      }
+    },
+    {
+      "id": "cadastral_parcel",
+      "type": "fill-3d",
+      "source": "overlay",
+      "source-layer": "cadastral_parcel",
+      "layout": {
+        "visibility": "none"
+      },
+      "paint": {
+        "fill-3d-color": [
+          "coalesce",
+          [
+            "get",
+            "color"
+          ],
+          "#f59e0b"
+        ],
+        "fill-3d-opacity": 0.4
+      }
+    },
+    {
+      "id": "cadastral_parcel_outline",
+      "type": "line-3d",
+      "source": "overlay",
+      "source-layer": "cadastral_parcel",
+      "layout": {
+        "visibility": "none"
+      },
+      "paint": {
+        "line-3d-color": "#f59e0b",
+        "line-3d-opacity": 0.6,
+        "line-3d-width": [
+          "interpolate",
+          [
+            "exponential",
+            0.5
+          ],
+          [
+            "zoom"
+          ],
+          14,
+          12,
+          20,
+          0.1875
+        ]
+      }
+    },
+    {
+      "id": "planned_landuse",
+      "type": "fill-3d",
+      "source": "overlay",
+      "source-layer": "planned_landuse",
+      "layout": {
+        "visibility": "none"
+      },
+      "paint": {
+        "fill-3d-color": [
+          "coalesce",
+          [
+            "get",
+            "color"
+          ],
+          "#7c3aed"
+        ],
+        "fill-3d-opacity": 0.5
+      }
+    },
+    {
+      "id": "planned_landuse_outline",
+      "type": "line-3d",
+      "source": "overlay",
+      "source-layer": "planned_landuse",
+      "layout": {
+        "visibility": "none"
+      },
+      "paint": {
+        "line-3d-color": "#ffffff",
+        "line-3d-opacity": 0.5,
+        "line-3d-width": [
+          "interpolate",
+          [
+            "exponential",
+            0.5
+          ],
+          [
+            "zoom"
+          ],
+          14,
+          12,
+          20,
+          0.1875
+        ]
+      }
+    },
+    {
+      "id": "planned_parcel",
+      "type": "fill-3d",
+      "source": "overlay",
+      "source-layer": "planned_parcel",
+      "layout": {
+        "visibility": "none"
+      },
+      "paint": {
+        "fill-3d-color": [
+          "coalesce",
+          [
+            "get",
+            "color"
+          ],
+          "#aac6da"
+        ],
+        "fill-3d-opacity": 0.3
+      }
+    },
+    {
+      "id": "planned_parcel_outline",
+      "type": "line-3d",
+      "source": "overlay",
+      "source-layer": "planned_parcel",
+      "layout": {
+        "visibility": "none"
+      },
+      "paint": {
+        "line-3d-color": "#39e0ff",
+        "line-3d-opacity": 0.55,
+        "line-3d-width": [
+          "interpolate",
+          [
+            "exponential",
+            0.5
+          ],
+          [
+            "zoom"
+          ],
+          14,
+          12,
+          20,
+          0.1875
+        ]
+      }
+    },
+    {
+      "id": "road_line",
+      "type": "line-3d",
+      "source": "basemap",
+      "source-layer": "road",
+      "layout": {
+        "visibility": "visible"
+      },
+      "paint": {
+        "line-3d-color": "#eef3ff",
+        "line-3d-opacity": 0.9,
+        "line-3d-width": [
+          "interpolate",
+          [
+            "exponential",
+            0.5
+          ],
+          [
+            "zoom"
+          ],
+          14,
+          8,
+          20,
+          0.7
+        ],
+        "line-3d-dasharray": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "id": "atlas",
+      "type": "building-atlas",
+      "source": "basemap",
+      "source-layer": "building",
+      "layout": {
+        "building-atlas-bay-width": [
+          "coalesce",
+          [
+            "get",
+            "bay_width"
+          ],
+          6
+        ],
+        "visibility": "visible"
+      },
+      "paint": {
+        "building-atlas-height": [
+          "*",
+          0.024,
+          [
+            "get",
+            "height_cm"
+          ]
+        ],
+        "building-atlas-base": [
+          "get",
+          "min_height"
+        ],
+        "building-atlas-pattern": [
+          "match",
+          [
+            "get",
+            "facade_material"
+          ],
+          "plaster",
+          "facade-plaster",
+          "brick",
+          "facade-brick",
+          "block",
+          "facade-block",
+          "wood",
+          "facade-wood",
+          "glass",
+          "facade-glass",
+          "facade-plaster"
+        ],
+        "building-atlas-glow-pattern": [
+          "match",
+          [
+            "get",
+            "facade_material"
+          ],
+          "plaster",
+          "facade-glow-window1",
+          "block",
+          "facade-glow-window1",
+          "brick",
+          "facade-glow-window0",
+          "wood",
+          "facade-glow-window0",
+          "glass",
+          "facade-glow-glass",
+          "facade-glow-window1"
+        ],
+        "building-atlas-roof-pattern": [
+          "match",
+          [
+            "get",
+            "roof_material"
+          ],
+          "concrete",
+          "roof-concrete",
+          "eternit",
+          "roof-eternit",
+          "metal",
+          "roof-metal",
+          "tiles",
+          "roof-tiles",
+          "generic1",
+          "roof-generic1",
+          "generic2",
+          "roof-generic2",
+          "generic3",
+          "roof-generic3",
+          "generic4",
+          "roof-generic4",
+          "roof-concrete"
+        ],
+        "building-atlas-seed": [
+          "get",
+          "seed"
+        ],
+        "building-atlas-tint": "#2b3242",
+        "building-atlas-num-floors": [
+          "max",
+          1,
+          [
+            "round",
+            [
+              "case",
+              [
+                ">",
+                [
+                  "coalesce",
+                  [
+                    "get",
+                    "num_floors"
+                  ],
+                  0
+                ],
+                0
+              ],
+              [
+                "get",
+                "num_floors"
+              ],
+              [
+                "/",
+                [
+                  "*",
+                  0.024,
+                  [
+                    "get",
+                    "height_cm"
+                  ]
+                ],
+                3.3
+              ]
+            ]
+          ]
+        ],
+        "building-atlas-night": 1
+      }
+    },
+    {
+      "id": "glass",
+      "type": "building-glass",
+      "source": "basemap",
+      "source-layer": "building",
+      "layout": {
+        "visibility": "none"
+      },
+      "paint": {
+        "building-glass-height": [
+          "*",
+          0.024,
+          [
+            "get",
+            "height_cm"
+          ]
+        ],
+        "building-glass-base": [
+          "get",
+          "min_height"
+        ],
+        "building-glass-cast-shadows": true,
+        "building-glass-xray": true,
+        "building-glass-xray-hidden-edges": true,
+        "building-glass-edge-opacity": 0.5,
+        "building-glass-opacity": 0.05
+      }
+    },
+    {
+      "id": "tree",
+      "type": "model-3d",
+      "source": "basemap",
+      "source-layer": "tree",
+      "layout": {
+        "model-3d-id": "tree",
+        "model-3d-scale": [
+          "coalesce",
+          [
+            "get",
+            "scale"
+          ],
+          1
+        ],
+        "model-3d-height": [
+          "/",
+          [
+            "coalesce",
+            [
+              "get",
+              "height_cm"
+            ],
+            0
+          ],
+          100
+        ],
+        "model-3d-altitude": [
+          "coalesce",
+          [
+            "get",
+            "altitude"
+          ],
+          0
+        ],
+        "model-3d-bearing": [
+          "coalesce",
+          [
+            "get",
+            "bearing"
+          ],
+          0
+        ],
+        "model-3d-pitch": [
+          "coalesce",
+          [
+            "get",
+            "pitch"
+          ],
+          0
+        ],
+        "model-3d-roll": [
+          "coalesce",
+          [
+            "get",
+            "roll"
+          ],
+          0
+        ],
+        "visibility": "visible"
+      },
+      "paint": {
+        "model-3d-cull-face": "none",
+        "model-3d-sway-speed": 0.9,
+        "model-3d-sway-direction": 70.7,
+        "model-3d-sway-wavelength": 84,
+        "model-3d-sway-amplitude": 0.5
+      }
+    },
+    {
+      "id": "poi",
+      "type": "model-3d",
+      "source": "overlay",
+      "source-layer": "poi",
+      "layout": {
+        "model-3d-id": [
+          "match",
+          [
+            "get",
+            "subclass_code"
+          ],
+          "camera",
+          "camera",
+          "street_light",
+          "street_light",
+          "power_pole",
+          "power_pole",
+          "fire_hydrant",
+          "fire_hydrant",
+          ""
+        ],
+        "model-3d-scale": [
+          "coalesce",
+          [
+            "get",
+            "scale"
+          ],
+          1
+        ],
+        "model-3d-height": [
+          "/",
+          [
+            "coalesce",
+            [
+              "get",
+              "height_cm"
+            ],
+            0
+          ],
+          100
+        ],
+        "model-3d-altitude": [
+          "coalesce",
+          [
+            "get",
+            "altitude"
+          ],
+          0
+        ],
+        "model-3d-bearing": [
+          "+",
+          [
+            "case",
+            [
+              "==",
+              [
+                "get",
+                "subclass_code"
+              ],
+              "camera"
+            ],
+            180,
+            0
+          ],
+          [
+            "coalesce",
+            [
+              "get",
+              "bearing"
+            ],
+            0
+          ]
+        ],
+        "model-3d-pitch": [
+          "coalesce",
+          [
+            "get",
+            "pitch"
+          ],
+          0
+        ],
+        "model-3d-roll": [
+          "coalesce",
+          [
+            "get",
+            "roll"
+          ],
+          0
+        ],
+        "visibility": "visible"
+      }
+    },
+    {
+      "id": "camera_cone",
+      "type": "model-3d",
+      "source": "overlay",
+      "source-layer": "poi",
+      "filter": [
+        "==",
+        [
+          "get",
+          "subclass_code"
+        ],
+        "camera"
+      ],
+      "layout": {
+        "model-3d-id": "camera_cone",
+        "model-3d-scale": 16,
+        "model-3d-altitude": [
+          "coalesce",
+          [
+            "get",
+            "altitude"
+          ],
+          0
+        ],
+        "model-3d-bearing": [
+          "coalesce",
+          [
+            "get",
+            "bearing"
+          ],
+          0
+        ],
+        "model-3d-pitch": [
+          "coalesce",
+          [
+            "get",
+            "pitch"
+          ],
+          0
+        ],
+        "model-3d-roll": [
+          "coalesce",
+          [
+            "get",
+            "roll"
+          ],
+          0
+        ],
+        "model-3d-color": [
+          "match",
+          [
+            "get",
+            "status"
+          ],
+          [
+            "critical",
+            "error"
+          ],
+          "#ef4444",
+          [
+            "warning",
+            "maintenance"
+          ],
+          "#f59e0b",
+          [
+            "offline",
+            "inactive"
+          ],
+          "#6b7280",
+          "#22c55e"
+        ],
+        "visibility": "visible"
+      },
+      "paint": {
+        "model-3d-opacity": 0.22,
+        "model-3d-cull-face": "none",
+        "model-3d-cast-shadows": false,
+        "model-3d-ambient": 1,
+        "model-3d-diffuse": 0,
+        "model-3d-ambient-color": "rgba(0,0,0,0)"
+      }
+    },
+    {
+      "id": "camera_cone_edges",
+      "type": "model-3d",
+      "source": "overlay",
+      "source-layer": "poi",
+      "filter": [
+        "==",
+        [
+          "get",
+          "subclass_code"
+        ],
+        "camera"
+      ],
+      "layout": {
+        "model-3d-id": "camera_cone_edges",
+        "model-3d-scale": 16,
+        "model-3d-altitude": [
+          "coalesce",
+          [
+            "get",
+            "altitude"
+          ],
+          0
+        ],
+        "model-3d-bearing": [
+          "coalesce",
+          [
+            "get",
+            "bearing"
+          ],
+          0
+        ],
+        "model-3d-pitch": [
+          "coalesce",
+          [
+            "get",
+            "pitch"
+          ],
+          0
+        ],
+        "model-3d-roll": [
+          "coalesce",
+          [
+            "get",
+            "roll"
+          ],
+          0
+        ],
+        "model-3d-color": [
+          "match",
+          [
+            "get",
+            "status"
+          ],
+          [
+            "critical",
+            "error"
+          ],
+          "#ef4444",
+          [
+            "warning",
+            "maintenance"
+          ],
+          "#f59e0b",
+          [
+            "offline",
+            "inactive"
+          ],
+          "#6b7280",
+          "#22c55e"
+        ],
+        "visibility": "visible"
+      },
+      "paint": {
+        "model-3d-opacity": 0.9,
+        "model-3d-cast-shadows": false,
+        "model-3d-ambient": 1,
+        "model-3d-diffuse": 0,
+        "model-3d-ambient-color": "rgba(0,0,0,0)"
+      }
+    },
+    {
+      "id": "network",
+      "type": "tube-3d",
+      "source": "overlay",
+      "source-layer": "network",
+      "filter": [
+        "!=",
+        [
+          "get",
+          "subclass_code"
+        ],
+        "water_supply_network"
+      ],
+      "layout": {
+        "visibility": "visible"
+      },
+      "paint": {
+        "tube-3d-color": [
+          "match",
+          [
+            "get",
+            "subclass_code"
+          ],
+          "power_network",
+          "#ffb300",
+          "camera_cable_network",
+          "#bbc4c2",
+          "#2563eb"
+        ],
+        "tube-3d-radius": [
+          "match",
+          [
+            "get",
+            "subclass_code"
+          ],
+          "water_supply_network",
+          0.5,
+          0.25
+        ],
+        "tube-3d-altitude": [
+          "coalesce",
+          [
+            "get",
+            "height"
+          ],
+          0
+        ]
+      }
+    },
+    {
+      "id": "network_buried",
+      "type": "tube-3d",
+      "source": "overlay",
+      "source-layer": "network",
+      "filter": [
+        "==",
+        [
+          "get",
+          "subclass_code"
+        ],
+        "water_supply_network"
+      ],
+      "paint": {
+        "tube-3d-color": "#2563eb",
+        "tube-3d-radius": 0.5,
+        "tube-3d-altitude": [
+          "coalesce",
+          [
+            "get",
+            "height"
+          ],
+          0
+        ],
+        "tube-3d-xray": false
+      }
+    },
+    {
+      "id": "zone_wall",
+      "type": "wall-3d",
+      "source": "basemap",
+      "source-layer": "boundary",
+      "filter": [
+        "==",
+        [
+          "get",
+          "subclass_code"
+        ],
+        "zone"
+      ],
+      "layout": {
+        "visibility": "visible"
+      },
+      "paint": {
+        "wall-3d-color": "#00bfff",
+        "wall-3d-color-hot": "#00bfff",
+        "wall-3d-color-top": "#00bfff",
+        "wall-3d-halo-color": "#00bfff",
+        "wall-3d-halo-opacity": 0.5,
+        "wall-3d-halo-width": 6,
+        "wall-3d-height": 100,
+        "wall-3d-opacity": 0.95,
+        "wall-3d-blend": "normal",
+        "wall-3d-speed": 1
+      }
+    },
+    {
+      "id": "label_poi",
+      "type": "label-3d",
+      "source": "overlay",
+      "source-layer": "poi",
+      "layout": {
+        "label-3d-text-field": [
+          "get",
+          "name"
+        ],
+        "label-3d-text-size": 12,
+        "label-3d-text-max-width": 50,
+        "label-3d-sort-key": 200,
+        "visibility": "visible"
+      },
+      "paint": {
+        "label-3d-altitude": [
+          "+",
+          [
+            "coalesce",
+            [
+              "get",
+              "altitude"
+            ],
+            0
+          ],
+          [
+            "/",
+            [
+              "coalesce",
+              [
+                "get",
+                "height_cm"
+              ],
+              0
+            ],
+            100
+          ]
+        ],
+        "label-3d-accent-color": [
+          "match",
+          [
+            "get",
+            "subclass_code"
+          ],
+          "camera",
+          "#22d3ee",
+          "fire_hydrant",
+          "#ef4444",
+          "street_light",
+          "#f59e0b",
+          "power_pole",
+          "#f59e0b",
+          "#22d3ee"
+        ],
+        "label-3d-leader-length": 28,
+        "label-3d-anchor-size": 12
+      }
+    }
+  ]
+}

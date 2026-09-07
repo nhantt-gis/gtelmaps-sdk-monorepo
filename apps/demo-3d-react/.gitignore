@@ -1,0 +1,11 @@
+# Sinh lại bằng `node scripts/build-tiles.mjs`; script mới là thứ đáng giữ,
+# không phải output của nó. Mười một megabyte model không thuộc về repo này.
+public/tiles/
+# GeoJSON đứng thay cho API xe và người — không phải tile, nạp bằng addLayer.
+public/api/
+public/models/
+public/textures/
+# Sinh lại bằng `node scripts/build-sprite.mjs`.
+public/sprites/
+# `public/styles/` thì KHÔNG bỏ qua: `style.json` là nguồn, sửa tay được, và
+# `scripts/build-style.mjs` chỉ dựng lại khi cần chứ không phải mỗi lần build.

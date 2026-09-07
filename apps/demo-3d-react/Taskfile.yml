@@ -1,0 +1,133 @@
+# Taskfile cho demo-3d-react — chạy `task` để xem danh sách.
+# Cài go-task: https://taskfile.dev
+#
+# Đặt ở gốc app chứ không trong docker/: file này là cửa vào của app, gọi cả
+# pnpm (chạy trên host) lẫn docker compose, nên nó không phải một mảnh hạ tầng.
+version: "3"
+
+dotenv: ["docker/.env"]
+
+vars:
+  COMPOSE: docker compose -f docker/docker-compose.yml --env-file docker/.env
+
+tasks:
+  default:
+    desc: Liệt kê các task
+    cmds:
+      - task --list
+    silent: true
+
+  # ---- Trên host (pnpm) ---------------------------------------------------
+  install:
+    desc: Cài dependencies toàn workspace (chạy ở gốc kho)
+    dir: ../..
+    cmds:
+      - pnpm install
+
+  dev:
+    desc: "Vite dev server — http://localhost:5180, có HMR"
+    cmds:
+      - pnpm dev
+
+  build:
+    desc: "Build tĩnh (tsc --noEmit && vite build → dist/)"
+    cmds:
+      - pnpm build
+
+  typecheck:
+    desc: Chỉ kiểm tra kiểu (tsc --noEmit)
+    cmds:
+      - pnpm typecheck
+
+  preview:
+    desc: Xem thử bản build bằng vite preview
+    deps: [build]
+    cmds:
+      - pnpm preview
+
+  clean:
+    desc: Xoá bản build và cache của Vite (KHÔNG đụng public/)
+    cmds:
+      - rm -rf dist node_modules/.vite
+
+  # ---- Docker -------------------------------------------------------------
+  docker:build:
+    desc: "Dựng image {{.APP_IMAGE}}"
+    preconditions:
+      - sh: docker info >/dev/null 2>&1
+        msg: |
+          Docker daemon chưa chạy. WSL2: mở Docker Desktop, hoặc
+          `sudo service docker start`.
+      - sh: "! grep -q 'apps/demo-3d-parity:' ../../pnpm-lock.yaml"
+        msg: |
+          pnpm-lock.yaml còn liệt kê importer `apps/demo-3d-parity`, thư mục đã
+          bị xoá — `pnpm install --frozen-lockfile` trong container sẽ đứt ở
+          ERR_PNPM_OUTDATED_LOCKFILE. Làm mới trước:  task install
+      - sh: test -f ../../packages/gtelmaps-gl-js/dist/gtelmaps-gl-dev.js
+        msg: |
+          Thiếu packages/gtelmaps-gl-js/dist/gtelmaps-gl-dev.js — image chép
+          artefact này từ cây làm việc chứ không dựng lại nó. Dựng fork trước:
+          cd ../../packages/gtelmaps-gl-js && npm run build-dist
+    cmds:
+      - "{{.COMPOSE}} build"
+
+  docker:up:
+    desc: "Chạy nền rồi in URL"
+    deps: [_check-public]
+    cmds:
+      - "{{.COMPOSE}} up -d"
+      - 'echo "→ http://localhost:${APP_PORT:-8180}"'
+
+  docker:down:
+    desc: Dừng và xoá container
+    cmds:
+      - "{{.COMPOSE}} down"
+
+  docker:restart:
+    desc: Dựng lại image rồi chạy lại
+    cmds:
+      - task: docker:build
+      - "{{.COMPOSE}} up -d --force-recreate"
+      - 'echo "→ http://localhost:${APP_PORT:-8180}"'
+
+  docker:logs:
+    desc: Theo dõi log của nginx
+    cmds:
+      - "{{.COMPOSE}} logs -f app"
+
+  docker:ps:
+    desc: Trạng thái container
+    cmds:
+      - "{{.COMPOSE}} ps"
+
+  docker:sh:
+    desc: Mở shell trong container đang chạy
+    cmds:
+      - "{{.COMPOSE}} exec app sh"
+
+  docker:push:
+    desc: "Đẩy image {{.APP_IMAGE}} lên registry"
+    preconditions:
+      - sh: docker image inspect "$APP_IMAGE" >/dev/null 2>&1
+        msg: "Chưa có image $APP_IMAGE trên máy. Dựng trước:  task docker:build"
+    cmds:
+      - docker push "$APP_IMAGE"
+
+  # ---- Nội bộ -------------------------------------------------------------
+  _check-public:
+    internal: true
+    preconditions:
+      - sh: docker info >/dev/null 2>&1
+        msg: |
+          Docker daemon chưa chạy. WSL2: mở Docker Desktop, hoặc
+          `sudo service docker start`.
+      # public/ được mount :ro, không nằm trong image. Thiếu nó thì container
+      # vẫn lên và trang vẫn hiện, nhưng bản đồ trắng và lỗi chỉ hiện ở console
+      # trình duyệt — không có gì trong log container. Chặn ở đây rẻ hơn nhiều.
+      - sh: test -f public/styles/gtelmaps-3d-poc/style.json
+        msg: |
+          Thiếu public/styles/gtelmaps-3d-poc/style.json — thư mục public/ được
+          mount :ro vào container chứ không nằm trong image. Sinh lại:
+            node scripts/build-tiles.mjs
+            node scripts/build-sprite.mjs
+            node scripts/mock/build-api.mjs

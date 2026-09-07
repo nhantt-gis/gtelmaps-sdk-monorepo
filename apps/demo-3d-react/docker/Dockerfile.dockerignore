@@ -1,0 +1,58 @@
+# .dockerignore riêng cho Dockerfile cạnh nó — BuildKit ưu tiên
+# `<đường-dẫn-dockerfile>.dockerignore` hơn `.dockerignore` ở gốc context.
+# Mọi mẫu dưới đây tính từ GỐC KHO (context là ../../..), không phải từ docker/.
+#
+# Vì sao file này bắt buộc: cây kho là 4,3 GB (.git 1,2 GB, node_modules 1,9 GB).
+# Không có nó thì `docker build` gửi cả 4,3 GB cho daemon trước khi chạy dòng
+# lệnh đầu tiên. Với file này, context còn khoảng 40 MB.
+
+# ---- Thứ được cài lại hoặc dựng lại trong image ----
+**/node_modules
+**/.turbo
+**/.vite
+**/dist
+
+# ---- VCS ----
+# Cả .git của superproject lẫn của năm submodule.
+**/.git
+**/.gitignore
+**/.github
+
+# ---- Artefact dựng sẵn PHẢI lọt qua ----
+# `**/dist` ở trên đã chặn chúng, mà các COPY tường minh trong Dockerfile thì
+# không đọc được thứ bị chặn. Mở lại đúng những đường đã liệt kê ở đó, không hơn.
+!packages/gtelmaps-gl-js/dist/gtelmaps-gl-dev.js
+!packages/gtelmaps-gl-js/dist/gtelmaps-gl.css
+!packages/gtelmaps-gl-js/dist/gtelmaps-gl.d.ts
+!packages/gtelmaps-gl-js/dist/package.json
+!packages/gtelmaps-sdk-react/modules/react-gtelmaps/dist
+!packages/gtelmaps-sdk-js/dist
+
+# Sourcemap: đặt SAU các dòng `!` ở trên để thắng chúng. 30 MB không dùng đến.
+**/*.map
+
+# ---- Dữ liệu tĩnh: mount lúc chạy, không nướng vào image ----
+# 31 MB. Loại nó ở đây còn có tác dụng thứ hai, có chủ ý: Vite thấy publicDir
+# không tồn tại thì bỏ qua bước chép, nên dist/ không mang theo một bản sao để
+# rồi bị volume :ro che đi.
+apps/demo-3d-react/public
+
+# ---- Bí mật & cấu hình cục bộ: KHÔNG được lọt vào image ----
+**/.env
+**/.env.*
+
+# ---- Công cụ cục bộ ----
+.claude
+.codegraph
+.mcp.json
+*.local
+PROMPTS.md
+
+# ---- Tài liệu: không cần cho bản build ----
+*.md
+docs
+**/docs
+
+# ---- OS ----
+.DS_Store
+Thumbs.db
